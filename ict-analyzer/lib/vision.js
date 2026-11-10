@@ -61,12 +61,13 @@ Rules:
 - If the chart shows a different market than the one the trader selected, analyse the chart you see anyway and mention the difference in "problems". Set "readable" to false only when the candles or the price axis cannot be made out.
 - Reply with exactly one JSON object and nothing else. No markdown.`;
 
-function buildPrompt({ inst, session, notes, count, context, news }) {
+function buildPrompt({ inst, session, notes, count, context, news, guide }) {
   const W = WEIGHTS;
   const L = [];
   L.push(`MARKET THE TRADER SELECTED: ${inst.name} (${inst.key}), minimum price step ${inst.tick}.`);
   L.push(`TIME NOW: ${session.nyTime} New York — ${session.killzone ? session.killzone.name : 'outside the ICT killzones'}${session.silverBullet ? `, ${session.silverBullet.name}` : ''}.`);
   L.push(`SCREENSHOTS: ${count}. ${count > 1 ? 'They are usually different timeframes of the same market: use the highest timeframe for bias and the lowest for the entry.' : ''}`);
+  if (guide) L.push(String(guide).slice(0, 600));
   if (notes) L.push(`TRADER'S NOTE: ${String(notes).slice(0, 500)}`);
   if (context) {
     L.push('', 'REFERENCE DATA from a price feed that is about 10 minutes late (it may be a different contract than the chart). If its last price differs from the chart by more than 0.3%, ignore its price levels and keep only its bias:');
@@ -499,8 +500,8 @@ function imageNarrative(r, { f, inst }) {
   if (!news) n9.push('News feed not loaded. The score treats news as neutral.');
   else {
     if (news.sentiment) n9.push(`Headline tone: ${news.sentiment.label} (${news.sentiment.method}). ${news.sentiment.summary || ''}`.trim());
-    if (news.nextEvent) n9.push(`Next high-impact USD release: ${news.nextEvent.title} ${news.nextEvent.minutes >= 0 ? `in ${Math.floor(news.nextEvent.minutes / 60)}h ${news.nextEvent.minutes % 60}m` : 'just out'} (${news.nextEvent.when} NY).`);
-    else n9.push(news.calendarOk ? 'No high-impact USD release left on the calendar window.' : 'Economic calendar could not be loaded — check it by hand.');
+    if (news.nextEvent) n9.push(`Next high-impact USD release: ${news.nextEvent.title} ${news.nextEvent.minutes >= 0 ? `in ${Math.floor(news.nextEvent.minutes / 60)}h ${news.nextEvent.minutes % 60}m` : 'just out'} (${news.nextEvent.when}${news.manual ? '' : ' NY'}).`);
+    else n9.push(news.calendarOk ? (news.manual ? 'You reported no high-impact release in the next hour.' : 'No high-impact USD release left on the calendar window.') : 'Economic calendar could not be loaded — check it by hand.');
     n9.push('News carries 12.5% of the score. Trade the raid after the number, not the number.');
   }
   add('9. News and world events (12.5% weight)', n9);

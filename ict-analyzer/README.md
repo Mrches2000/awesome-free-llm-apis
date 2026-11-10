@@ -66,6 +66,18 @@ Press **AI settings** in the upload box.
 
 The key is stored in your browser only and sent only to the service you picked. Prices read from a picture can be a few ticks off: before placing an order, move the entry and stop to the exact candle on your own chart.
 
+## Private site
+
+`site/` is a second, hosted version of the screenshot mode: a private page on claude.ai that only its owner can open. It needs no server and no API key.
+
+- **Analyze** — add a chart screenshot; Claude reads it (the page asks Claude directly), and the same checks as in `lib/vision.js` produce entry, stop and the 1.5R / 2R / 2.5R targets.
+- **Journal** — every analysis is saved with its levels and a small copy of the chart. Mark each one win, loss or break-even to see win rate and total R. The journal is readable only by the page's owner.
+- **Playbook** — the routine, killzone times in New York and local time, the score table and plain-language ICT terms.
+
+The site has no price feed, so there is no match against price data: news is entered by hand (two drop-downs) and the bias comes from the pictures. Add a Daily or H1 screenshot next to the entry chart.
+
+`site/index.html` is the page; `site/engine.js` is generated from `lib/*.js` by `node site/build.js` — run it again after changing the analysis code, then republish.
+
 ## What it analyses
 
 It reads six timeframes top-down — **Daily → H4 → H1 → M15 → M5 → M1** — in New York time.
@@ -164,6 +176,7 @@ server.js          web server and API (/api/analyze)
 lib/ict.js         detectors: swings, structure, FVG, order blocks, breakers, BPR, equal highs/lows
 lib/analyze.js     bias, liquidity map, entry model, scoring, trade plan
 lib/vision.js      screenshot mode: prompt, AI call, checks, merge with price data
+site/              the private hosted page (index.html, build.js, generated engine.js)
 lib/narrative.js   the written breakdown
 lib/news.js        calendar, headlines, tone
 lib/data.js        live feed, CSV import, demo data
