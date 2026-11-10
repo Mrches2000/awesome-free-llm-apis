@@ -61,7 +61,7 @@ Rules:
 - If the chart shows a different market than the one the trader selected, analyse the chart you see anyway and mention the difference in "problems". Set "readable" to false only when the candles or the price axis cannot be made out.
 - Reply with exactly one JSON object and nothing else. No markdown.`;
 
-function buildPrompt({ inst, session, notes, count, context, news, guide }) {
+function buildPrompt({ inst, session, notes, count, context, news, guide, ownData }) {
   const W = WEIGHTS;
   const L = [];
   L.push(`MARKET THE TRADER SELECTED: ${inst.name} (${inst.key}), minimum price step ${inst.tick}.`);
@@ -70,7 +70,9 @@ function buildPrompt({ inst, session, notes, count, context, news, guide }) {
   if (guide) L.push(String(guide).slice(0, 600));
   if (notes) L.push(`TRADER'S NOTE: ${String(notes).slice(0, 500)}`);
   if (context) {
-    L.push('', 'REFERENCE DATA from a price feed that is about 10 minutes late (it may be a different contract than the chart). If its last price differs from the chart by more than 0.3%, ignore its price levels and keep only its bias:');
+    L.push('', ownData
+      ? 'REFERENCE DATA calculated from candles the trader exported from this chart. If its last price differs from the chart by more than 0.5%, ignore its price levels and keep only its bias:'
+      : 'REFERENCE DATA from a price feed that is about 10 minutes late (it may be a different contract than the chart). If its last price differs from the chart by more than 0.3%, ignore its price levels and keep only its bias:');
     L.push(...context.map((x) => `- ${x}`));
   }
   if (news) {
@@ -453,7 +455,7 @@ function imageNarrative(r, { f, inst }) {
   const h = [`Bias from the chart: ${bias.label}. ${bias.why}`.trim()];
   if (bias.draw) h.push(`Draw on liquidity: ${bias.draw}.`);
   if (engine && engine.sameMarket) {
-    h.push(`Cross-check from price data (about 10 minutes late): ${engine.bias.label}, score ${engine.bias.sum > 0 ? '+' : ''}${engine.bias.sum} of ±${engine.bias.max}.`);
+    h.push(`Cross-check from price data${engine.delayed ? ' (about 10 minutes late)' : ''}: ${engine.bias.label}, score ${engine.bias.sum > 0 ? '+' : ''}${engine.bias.sum} of ±${engine.bias.max}.`);
     for (const l of (engine.lines || []).slice(0, 7)) h.push(l);
     if (engine.plan) h.push(`Second opinion — the price-data engine on its own says ${engine.plan.action} (${engine.plan.score}/100)${engine.plan.entry !== undefined ? `, entry ${f(engine.plan.entry)}, stop ${f(engine.plan.stop)}` : ''}${engine.plan.reason ? `: ${engine.plan.reason}` : '.'}`);
   } else if (engine) h.push(`The price feed shows ${f(engine.price)}, which does not match this chart, so it was left out. Is the right market selected at the top?`);
@@ -520,11 +522,12 @@ function imageNarrative(r, { f, inst }) {
 /** Merge: engine result (exact levels) + what the AI read from the picture. */
 function fuse(e, v, { f, inst }) {
   const feed = e.meta.price;
+  const own = e.meta.source === 'csv';
   e.mode = 'fusion';
   Object.assign(e.meta, {
     source: 'image', feedPrice: feed, price: v.meta.price, model: v.meta.model, confidence: v.meta.confidence, images: v.meta.images,
     chartInstrument: v.meta.chartInstrument, chartTimeframes: v.meta.timeframes, period: v.meta.period,
-    note: `Your screenshot was matched to ${inst.key} price data (your chart ${f(v.meta.price)}, data ${f(feed)} about 10 minutes late). The candle analysis is calculated from that data; the indicators, drawings and newest price are read from your picture by AI.`,
+    note: `Your screenshot was matched to ${own ? 'the price data you added' : `${inst.key} price data`} (your chart ${f(v.meta.price)}, data ${f(feed)}${own ? '' : ' about 10 minutes late'}). The candle analysis is calculated from that data; the indicators, drawings and newest price are read from your picture by AI.`,
   });
   const agree = v.bias.dir === 0 || e.bias.dir === 0 ? null : v.bias.dir === e.bias.dir;
   e.vision = {
@@ -561,15 +564,13 @@ function engineContext(r, f) {
   return lines;
 }
 
-async function analyzeImages({ inst, images, notes, llm, news, engineResult, rerun, now = Math.floor(Date.now() / 1000) }) {
-  if (!Array.isArray(images) || !images.length) throw new Error('Add at least one chart screenshot.');
-  if (images.length > 4) throw new Error('Use at most 4 screenshots.');
-  for (const u of images) if (typeof u !== 'string' || !/^data:image\/(png|jpeg|webp);base64,/.test(u)) throw new Error('Screenshots must be PNG, JPEG or WebP pictures.');
+/**
+ * Everything after the model has answered: check its reading, score it, and — when
+ * price data for the same market is available — let the exact engine do the candle
+ * maths and add what only the picture has (indicators, drawings, the newest price).
+ */
+async function combine({ raw, inst, now, news, engineResult, rerun, modelName, count }) {
   const f = (p) => Number(p).toLocaleString('en-US', { minimumFractionDigits: inst.decimals, maximumFractionDigits: inst.decimals });
-  const session = sessionInfo(now);
-  const lines = engineResult ? engineContext(engineResult, f) : null;
-  const prompt = buildPrompt({ inst, session, notes, count: images.length, context: lines, news });
-  const raw = await callVision({ baseUrl: llm.baseUrl, apiKey: llm.apiKey, model: llm.model, images, prompt });
   let engine = null;
   if (engineResult) {
     const last = num(raw.chart && raw.chart.last_price);
@@ -578,15 +579,14 @@ async function analyzeImages({ inst, images, notes, llm, news, engineResult, rer
     const ep = engineResult.plan;
     engine = {
       bias: { dir: engineResult.bias.dir, label: engineResult.bias.label, sum: engineResult.bias.sum, max: engineResult.bias.max },
-      price: engineResult.meta.price, lines: lines.slice(2), priceMatches: diff === null ? null : diff <= 0.005, sameMarket: diff !== null && diff <= 0.02,
+      price: engineResult.meta.price, lines: engineContext(engineResult, f).slice(2), delayed: engineResult.meta.source === 'live',
+      priceMatches: diff === null ? null : diff <= 0.005, sameMarket: diff !== null && diff <= 0.02,
       open: o.midnight ? { name: 'midnight open', price: o.midnight.price } : o.daily ? { name: 'daily open (18:00)', price: o.daily.price } : null,
       h1Trend: engineResult.chart.H1 ? engineResult.chart.H1.trend : undefined,
       plan: { action: ep.action, score: ep.score, state: ep.state, entry: ep.entry, stop: ep.stop, reason: ep.reason },
     };
   }
-  const seen = buildResult(raw, { inst, now, news, engine, modelName: llm.model, count: images.length });
-  // Same market as the price data: let the exact engine do the candle maths and
-  // add what only the picture has (indicators, drawings, the newest price).
+  const seen = buildResult(raw, { inst, now, news, engine, modelName, count });
   if (engine && engine.priceMatches && typeof rerun === 'function') {
     try {
       const exact = await rerun({ indicators: seen.read.indicators.map(({ name, dir }) => ({ name, dir })), livePrice: seen.meta.price });
@@ -596,4 +596,16 @@ async function analyzeImages({ inst, images, notes, llm, news, engineResult, rer
   return seen;
 }
 
-module.exports = { PROVIDERS, analyzeImages, buildPrompt, buildResult, callVision, extractJson, SYSTEM };
+async function analyzeImages({ inst, images, notes, llm, news, engineResult, rerun, now = Math.floor(Date.now() / 1000) }) {
+  if (!Array.isArray(images) || !images.length) throw new Error('Add at least one chart screenshot.');
+  if (images.length > 4) throw new Error('Use at most 4 screenshots.');
+  for (const u of images) if (typeof u !== 'string' || !/^data:image\/(png|jpeg|webp);base64,/.test(u)) throw new Error('Screenshots must be PNG, JPEG or WebP pictures.');
+  const f = (p) => Number(p).toLocaleString('en-US', { minimumFractionDigits: inst.decimals, maximumFractionDigits: inst.decimals });
+  const session = sessionInfo(now);
+  const lines = engineResult ? engineContext(engineResult, f) : null;
+  const prompt = buildPrompt({ inst, session, notes, count: images.length, context: lines, news });
+  const raw = await callVision({ baseUrl: llm.baseUrl, apiKey: llm.apiKey, model: llm.model, images, prompt });
+  return combine({ raw, inst, now, news, engineResult, rerun, modelName: llm.model, count: images.length });
+}
+
+module.exports = { PROVIDERS, analyzeImages, combine, engineContext, buildPrompt, buildResult, callVision, extractJson, SYSTEM };

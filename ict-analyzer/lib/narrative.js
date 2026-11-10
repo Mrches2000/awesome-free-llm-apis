@@ -169,8 +169,8 @@ function buildNarrative(r, { A, KL, f, inst }) {
   if (!news) n9.push('News feed not loaded. The score treats news as neutral.');
   else {
     if (news.sentiment) n9.push(`Headline tone: ${news.sentiment.label} (${news.sentiment.score > 0 ? '+' : ''}${news.sentiment.score.toFixed(2)} on a −1…+1 scale, ${news.sentiment.method}). ${news.sentiment.summary || ''}`.trim());
-    if (news.nextEvent) n9.push(`Next high-impact USD release: ${news.nextEvent.title} ${news.nextEvent.minutes >= 0 ? `in ${Math.floor(news.nextEvent.minutes / 60)}h ${news.nextEvent.minutes % 60}m` : 'just out'} (${news.nextEvent.when} NY).`);
-    else if (news.calendarOk) n9.push('No high-impact USD release left on the calendar window.');
+    if (news.nextEvent) n9.push(`Next high-impact USD release: ${news.nextEvent.title} ${news.nextEvent.minutes >= 0 ? `in ${Math.floor(news.nextEvent.minutes / 60)}h ${news.nextEvent.minutes % 60}m` : 'just out'} (${news.nextEvent.when}${news.manual ? '' : ' NY'}).`);
+    else if (news.calendarOk) n9.push(news.manual ? 'You reported no high-impact release in the next hour.' : 'No high-impact USD release left on the calendar window.');
     else n9.push('Economic calendar could not be loaded — check it by hand before trading.');
     n9.push('News carries 12.5% of the score. In ICT terms a release is not a reason to trade; it is the volatility that runs price into liquidity. Trade the raid after the number, not the number.');
   }
