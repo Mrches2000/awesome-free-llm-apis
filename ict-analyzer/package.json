@@ -1,0 +1,12 @@
+{
+  "name": "ict-analyzer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "In-depth ICT (Inner Circle Trader) chart analysis for gold and Nasdaq futures with a scored trade plan.",
+  "license": "CC0-1.0",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  }
+}

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ICT Analyzer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">ICT</span><div><h1>ICT Analyzer</h1><p>Gold &amp; Nasdaq futures · short-term setups · 1.5R / 2R / 2.5R</p></div></div>
+  <div class="controls">
+    <div class="seg" id="symbols" role="group" aria-label="Instrument"></div>
+    <label class="field">Data
+      <select id="source">
+        <option value="live">Live (delayed ~10 min)</option>
+        <option value="csv">My CSV export</option>
+        <option value="demo">Demo (simulated)</option>
+      </select>
+    </label>
+    <label class="filebtn" id="csvWrap" hidden><input type="file" id="csv" accept=".csv,text/csv"><span id="csvName">Choose CSV…</span></label>
+    <button id="run" class="primary">Analyze</button>
+    <label class="check"><input type="checkbox" id="auto"> Refresh every minute</label>
+  </div>
+</header>
+
+<div id="banner" class="banner" hidden></div>
+
+<main id="app" hidden>
+  <section class="grid">
+    <div class="panel chartPanel">
+      <div class="chartBar">
+        <div class="seg" id="tfs" role="group" aria-label="Timeframe"></div>
+        <div class="layers" id="layers"></div>
+      </div>
+      <div class="chartWrap"><canvas id="chart"></canvas><div id="tip" class="tip" hidden></div></div>
+      <div class="legend">
+        <span><i class="sw bullZ"></i>Bullish FVG</span><span><i class="sw bearZ"></i>Bearish FVG</span>
+        <span><i class="sw obB"></i>Order block / breaker</span><span><i class="sw liq"></i>Liquidity (dashed)</span>
+        <span><i class="sw kz"></i>Killzones</span><span>Scroll = zoom · drag = move · double-click = reset</span>
+      </div>
+    </div>
+
+    <aside class="side">
+      <div class="panel verdict" id="verdict"></div>
+      <div class="panel" id="sizer"></div>
+    </aside>
+  </section>
+
+  <section class="grid2">
+    <div class="panel"><h2>Confluence checklist <small id="scoreLine"></small></h2><div id="checklist"></div></div>
+    <div class="panel"><h2>Context at a glance</h2><div id="context"></div></div>
+  </section>
+
+  <section class="panel"><h2>Full ICT breakdown</h2><div id="narrative" class="narr"></div></section>
+
+  <section class="grid2">
+    <div class="panel"><h2>Economic calendar <small>USD, medium + high impact, New York time</small></h2><div id="calendar"></div></div>
+    <div class="panel"><h2>Headlines <small id="tone"></small></h2><div id="headlines"></div></div>
+  </section>
+
+  <footer class="foot">
+    <p><strong>This is an analysis aid, not financial advice.</strong> It applies ICT rules mechanically and cannot know your account, your broker's prices or what happens next. Futures are leveraged — you can lose more than you expect. Check every level on your own chart before placing an order.</p>
+  </footer>
+</main>
+
+<div id="empty" class="empty">
+  <h2>Pick an instrument and press Analyze</h2>
+  <p>The engine reads Daily → H4 → H1 → M15 → M5 → M1, maps liquidity, fair value gaps, order blocks, breakers, premium/discount, killzones and SMT, then scores the best trade.</p>
+</div>
+
+<script src="chart.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
