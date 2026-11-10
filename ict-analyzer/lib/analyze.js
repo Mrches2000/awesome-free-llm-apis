@@ -400,6 +400,40 @@ function detectSetups(dir, tfName, a, sweeps, win, inst) {
 
 /* ------------------------------ scoring ------------------------------- */
 
+// The parts of the score that do not depend on reading candles. Shared with the
+// screenshot mode so both modes judge time and news the same way.
+function timeScore(session) {
+  const kz = session.killzone;
+  let pts = kz ? WEIGHTS.time * kz.quality * 0.88 : 2;
+  if (kz && kz.quality > 0 && session.silverBullet) pts = WEIGHTS.time;
+  return {
+    pts,
+    detail: `${session.nyTime} New York. ${kz ? kz.name : 'Outside the killzones'}${session.silverBullet ? ` — ${session.silverBullet.name}` : ''}${session.macro ? ` — macro window ${session.macro}` : ''}.`,
+  };
+}
+
+function newsScores(dir, news, group) {
+  const W = WEIGHTS;
+  const sent = news && news.sentiment ? news.sentiment.score : 0;
+  const sentiment = {
+    pts: W.newsSentiment * (0.5 + 0.5 * clamp(dir * sent, -1, 1)),
+    detail: news && news.sentiment ? `${news.sentiment.label} for ${group === 'gold' ? 'gold' : 'the Nasdaq'} (${sent > 0 ? '+' : ''}${sent.toFixed(2)}, ${news.sentiment.method}).` : 'News feed unavailable — scored neutral.',
+  };
+  const ev = news && news.nextEvent;
+  let pts = W.newsCalendar; let detail = 'No high-impact USD release in the next hour.';
+  if (ev && ev.minutes >= -5 && ev.minutes <= 30) { pts = 0; detail = `${ev.title} (${ev.impact} impact) ${ev.minutes <= 0 ? 'just released' : `in ${ev.minutes} min`} — stand aside until it prints.`; }
+  else if (ev && ev.minutes > 30 && ev.minutes <= 60) { pts = 2.5; detail = `${ev.title} (${ev.impact} impact) in ${ev.minutes} min — expect a liquidity raid on the release.`; }
+  else if (!news || !news.calendarOk) { pts = 2.5; detail = 'Economic calendar unavailable — scored half; check it by hand.'; }
+  return { sentiment, calendar: { pts, detail }, eventBlock: pts === 0 };
+}
+
+/** Hours when no new position should be opened, whatever the chart says. */
+function deadHours(session) {
+  if (session.mins >= 960 && session.mins < 1080) return 'The trading day is closing (16:00–18:00 New York) — no new positions.';
+  if (session.killzone && session.killzone.key === 'lunch') return 'New York lunch hour — price is usually choppy; wait for the PM session.';
+  return null;
+}
+
 function scoreDirection(dir, setup, ctx) {
   const { bias, A, pools, price, session, smt, opens, news, range, inst } = ctx;
   const W = WEIGHTS;
@@ -478,16 +512,20 @@ function scoreDirection(dir, setup, ctx) {
     put('ote', 'Optimal trade entry (62–79%)', W.ote, 0, 'No displacement leg to measure.');
   }
 
-  const kz = session.killzone;
-  let tPts = kz ? W.time * kz.quality * 0.88 : 2;
-  if (kz && kz.quality > 0 && session.silverBullet) tPts = W.time;
-  put('time', 'Time of day (killzone)', W.time, tPts,
-    `${session.nyTime} New York. ${kz ? kz.name : 'Outside the killzones'}${session.silverBullet ? ` — ${session.silverBullet.name}` : ''}${session.macro ? ` — macro window ${session.macro}` : ''}.`);
+  const tm = timeScore(session);
+  put('time', 'Time of day (killzone)', W.time, tm.pts, tm.detail);
 
   const s = (smt || []).filter((x) => x.dir === dir && x.age <= 40);
   const against = (smt || []).filter((x) => x.dir === -dir && x.age <= 40);
-  put('smt', `SMT divergence vs ${inst.smtName}`, W.smt, s.length ? W.smt : 0,
+  const ind = ctx.indicators; // read from the trader's screenshot, when there is one
+  const smtMax = ind ? W.smt / 2 : W.smt;
+  put('smt', `SMT divergence vs ${inst.smtName}`, smtMax, s.length ? smtMax : 0,
     smt === null ? 'Correlated market data not available — SMT not scored.' : s.length ? s[0].text : against.length ? `Divergence points the other way: ${against[0].text}` : 'No divergence at the recent swings.');
+  if (ind) {
+    const yes = ind.filter((i) => i.dir === dir); const no = ind.filter((i) => i.dir === -dir);
+    put('ind', 'Indicators on your chart', W.smt / 2, ind.length ? (W.smt / 2) * clamp((yes.length - no.length) / ind.length, 0, 1) : 0,
+      ind.length ? `${yes.length} of ${ind.length} agree with a ${word}${yes.length ? ` (${yes.map((i) => i.name).join(', ')})` : ''}, ${no.length} against${no.length ? ` (${no.map((i) => i.name).join(', ')})` : ''}, ${ind.length - yes.length - no.length} neutral.` : 'The AI found no indicators on your screenshot.');
+  }
 
   const o = opens.midnight || opens.daily;
   const oName = opens.midnight ? 'midnight open' : 'daily open (18:00)';
@@ -498,25 +536,19 @@ function scoreDirection(dir, setup, ctx) {
 
   const ictPts = items.reduce((x, y) => x + y.pts, 0);
 
-  const sent = news && news.sentiment ? news.sentiment.score : 0;
-  put('newsSentiment', 'News / world-event tone', W.newsSentiment, W.newsSentiment * (0.5 + 0.5 * clamp(dir * sent, -1, 1)),
-    news && news.sentiment ? `${news.sentiment.label} for ${inst.group === 'gold' ? 'gold' : 'the Nasdaq'} (${sent > 0 ? '+' : ''}${sent.toFixed(2)}, ${news.sentiment.method}).` : 'News feed unavailable — scored neutral.');
-  const ev = news && news.nextEvent;
-  let cPts = W.newsCalendar; let cDetail = 'No high-impact USD release in the next hour.';
-  if (ev && ev.minutes >= -5 && ev.minutes <= 30) { cPts = 0; cDetail = `${ev.title} (${ev.impact} impact) ${ev.minutes <= 0 ? 'just released' : `in ${ev.minutes} min`} — stand aside until it prints.`; }
-  else if (ev && ev.minutes > 30 && ev.minutes <= 60) { cPts = 2.5; cDetail = `${ev.title} (${ev.impact} impact) in ${ev.minutes} min — expect a liquidity raid on the release.`; }
-  else if (!news || !news.calendarOk) { cPts = 2.5; cDetail = 'Economic calendar unavailable — scored half; check it by hand.'; }
-  put('newsCalendar', 'Economic calendar risk', W.newsCalendar, cPts, cDetail);
+  const nw = newsScores(dir, news, inst.group);
+  put('newsSentiment', 'News / world-event tone', W.newsSentiment, nw.sentiment.pts, nw.sentiment.detail);
+  put('newsCalendar', 'Economic calendar risk', W.newsCalendar, nw.calendar.pts, nw.calendar.detail);
 
   const total = Math.round(items.reduce((x, y) => x + y.pts, 0) * 10) / 10;
-  return { dir, total, ictPts: Math.round(ictPts * 10) / 10, newsPts: Math.round((total - ictPts) * 10) / 10, items, rrMax, draw, eventBlock: cPts === 0 };
+  return { dir, total, ictPts: Math.round(ictPts * 10) / 10, newsPts: Math.round((total - ictPts) * 10) / 10, items, rrMax, draw, eventBlock: nw.eventBlock };
 }
 
 const grade = (s) => (s >= 82 ? 'A+' : s >= 73 ? 'A' : s >= MIN_SCORE ? 'B' : s >= 50 ? 'C' : 'No trade');
 
 /* ------------------------------- main --------------------------------- */
 
-function analyze({ inst, tf, smt: smtTf, news, source, clock }) {
+function analyze({ inst, tf, smt: smtTf, news, source, clock, indicators, livePrice }) {
   const order = ['M1', 'M5', 'M15', 'H1'];
   const baseName = order.find((k) => tf[k] && tf[k].length >= 30);
   if (!baseName) throw new Error('Not enough price data to analyse (need at least 30 intraday candles).');
@@ -556,7 +588,7 @@ function analyze({ inst, tf, smt: smtTf, news, source, clock }) {
     for (const dir of [1, -1]) setups.push(...detectSetups(dir, name, A[name], sw, wins[name], inst));
   }
 
-  const ctx = { bias, A, pools, price, session, smt, opens: KL.opens, news, range, inst, f };
+  const ctx = { bias, A, pools, price, session, smt, opens: KL.opens, news, range, inst, f, indicators: Array.isArray(indicators) ? indicators : null };
   const stateRank = { in_zone: 3, pending: 2, triggered: 1.5, await_mss: 1, done: 0 };
   const tfRank = { M5: 0.3, M15: 0.2, M1: 0.1 };
   const scored = setups.map((s) => ({ setup: s, score: scoreDirection(s.dir, s, ctx) }));
@@ -588,7 +620,15 @@ function analyze({ inst, tf, smt: smtTf, news, source, clock }) {
     const backed = tps.filter((t) => t.backed);
     const g = grade(sc.total);
     const counter = s.dir * bias.sum <= -4;
-    const dead = session.mins >= 960 && session.mins < 1080 ? 'The trading day is closing (16:00–18:00 New York) — no new positions.' : session.killzone && session.killzone.key === 'lunch' ? 'New York lunch hour — price is usually choppy; wait for the PM session.' : stale ? 'The market is closed or the data is not current — use this as the plan for the next open.' : null;
+    let dead = deadHours(session) || (stale ? 'The market is closed or the data is not current — use this as the plan for the next open.' : null);
+    // the screenshot shows a newer price than the delayed feed: re-check the plan against it
+    if (Number.isFinite(livePrice)) {
+      if (s.dir * (livePrice - s.stop) <= 0) dead = `On your chart price (${f(livePrice)}) has already traded through the stop of this setup (${f(s.stop)}). The idea is finished — wait for a new one.`;
+      else if (s.state === 'pending' && s.dir * (livePrice - s.entry) <= 0.3 * s.risk) s.state = 'in_zone';
+      else if (s.state !== 'pending' && s.dir * (livePrice - s.entry) >= 1.5 * s.risk) dead = dead || `On your chart price (${f(livePrice)}) is already past the first target of this setup. Do not chase it.`;
+    }
+    // the furthest mapped liquidity must leave room for at least the first target
+    if (!dead && sc.rrMax !== null && sc.rrMax < 1.5) dead = `The furthest liquidity in this direction (${sc.draw.label}) is only ${sc.rrMax.toFixed(1)}R from the entry — no room for a 1.5R trade.`;
     const go = sc.total >= MIN_SCORE && !sc.eventBlock && s.state !== 'triggered' && !counter && !dead;
     plan = {
       action: go ? (s.dir === 1 ? 'LONG' : 'SHORT') : 'WAIT', dir: s.dir, grade: g, score: sc.total, ictPts: sc.ictPts, newsPts: sc.newsPts,
@@ -683,4 +723,4 @@ function analyze({ inst, tf, smt: smtTf, news, source, clock }) {
   return result;
 }
 
-module.exports = { analyze, WEIGHTS, RR_TARGETS, MIN_SCORE, detectSetups, findSweeps, buildPools, computeBias, keyLevels, grade };
+module.exports = { analyze, WEIGHTS, RR_TARGETS, MIN_SCORE, timeScore, newsScores, deadHours, detectSetups, findSweeps, buildPools, computeBias, keyLevels, grade };

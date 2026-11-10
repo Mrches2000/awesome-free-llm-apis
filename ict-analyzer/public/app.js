@@ -8,7 +8,7 @@
   const SYMBOLS = [['MNQ', 'Micro Nasdaq'], ['MGC', 'Micro Gold'], ['NQ', 'Nasdaq'], ['GC', 'Gold']];
   const LAYERS = [['fvg', 'Fair value gaps'], ['ob', 'Order blocks'], ['liq', 'Liquidity'], ['structure', 'Structure'], ['sessions', 'Killzones'], ['plan', 'Trade plan']];
   const TF_ORDER = ['D', 'H4', 'H1', 'M15', 'M5', 'M1'];
-  const state = { symbol: store.get('ict.symbol', 'MNQ'), tf: null, data: null, csv: null, timer: null, busy: false };
+  const state = { symbol: store.get('ict.symbol', 'MNQ'), tf: null, data: null, csv: null, timer: null, busy: false, shots: [], providers: [], ai: null };
   const chart = new window.IctChart($('chart'), $('tip'));
 
   /* ---------- controls ---------- */
@@ -20,13 +20,13 @@
   drawSymbols();
   $('layers').innerHTML = LAYERS.map(([k, label]) => `<button data-k="${k}" class="on">${label}</button>`).join('');
   $('layers').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; chart.layers[b.dataset.k] = !chart.layers[b.dataset.k]; b.classList.toggle('on'); chart.draw(); };
-  $('source').value = store.get('ict.source', 'live');
-  const syncSource = () => { $('csvWrap').hidden = $('source').value !== 'csv'; };
+  $('source').value = store.get('ict.source', 'image');
+  const syncSource = () => { const v = $('source').value; $('csvWrap').hidden = v !== 'csv'; $('uploader').hidden = v !== 'image'; };
   syncSource();
-  $('source').onchange = () => { store.set('ict.source', $('source').value); syncSource(); if ($('source').value !== 'csv' || state.csv) run(); };
+  $('source').onchange = () => { store.set('ict.source', $('source').value); syncSource(); const v = $('source').value; if (v === 'live' || v === 'demo' || (v === 'csv' && state.csv)) run(); };
   $('csv').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; state.csv = await f.text(); $('csvName').textContent = f.name; run(); };
   $('run').onclick = () => run();
-  $('auto').onchange = () => { clearInterval(state.timer); if ($('auto').checked) state.timer = setInterval(() => { if ($('source').value !== 'csv') run(true); }, 60000); };
+  $('auto').onchange = () => { clearInterval(state.timer); if ($('auto').checked) state.timer = setInterval(() => { if (['live', 'demo'].includes($('source').value)) run(true); }, 60000); };
 
   function banner(kind, html) { const b = $('banner'); b.hidden = !html; b.className = `banner ${kind || ''}`; b.innerHTML = html || ''; }
 
@@ -34,9 +34,12 @@
     if (state.busy) return;
     const source = $('source').value;
     if (source === 'csv' && !state.csv) { banner('warn', 'Choose a CSV file first. In TradingView: open your chart on 1 or 5 minutes → menu next to the layout name → <b>Export chart data…</b>'); return; }
-    state.busy = true; $('run').disabled = true; $('run').textContent = 'Analyzing…';
+    if (source === 'image' && !state.shots.length) { banner('warn', 'Add a screenshot of your chart first: drop it in the box above, paste it, or choose a picture.'); return; }
+    state.busy = true; $('run').disabled = true; $('run').textContent = source === 'image' ? 'AI is reading your chart… (up to a minute)' : 'Analyzing…';
     try {
-      const res = source === 'csv'
+      const res = source === 'image'
+        ? await fetch('/api/analyze-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbol: state.symbol, images: state.shots, notes: $('notes').value, llm: aiRequest() }) })
+        : source === 'csv'
         ? await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbol: state.symbol, csv: state.csv }) })
         : await fetch(`/api/analyze?symbol=${encodeURIComponent(state.symbol)}&source=${source}`);
       const data = await res.json();
@@ -57,14 +60,65 @@
   function render(resetTf) {
     const d = state.data; const m = d.meta;
     $('empty').hidden = true; $('app').hidden = false;
+    const mode = d.mode || 'data';
+    if (mode === 'image') return renderImageOnly();
     const old = m.source === 'csv' && m.ageMin > 30;
     const kind = m.source === 'demo' || m.stale || old ? 'warn' : '';
-    banner(kind, `<b>${esc(m.symbol)} · ${esc(m.name)}</b> — last price <b>${fmtP(m.price)}</b> as of ${esc(m.asOfText)} New York. ${esc(m.note || '')}${m.stale ? ' <b>The market looks closed or the feed is behind.</b>' : ''}${old ? ` <b>This file ends ${m.ageMin > 2880 ? Math.round(m.ageMin / 1440) + ' days' : m.ageMin > 120 ? Math.round(m.ageMin / 60) + ' hours' : m.ageMin + ' minutes'} ago — the levels describe that moment, not now.</b>` : ''}`);
+    banner(kind, `<b>${esc(m.symbol)} · ${esc(m.name)}</b> — ${mode === 'fusion' ? 'price on your chart' : 'last price'} <b>${fmtP(m.price)}</b> as of ${esc(m.asOfText)} New York. ${esc(m.note || '')}${m.stale ? ' <b>The market looks closed or the feed is behind.</b>' : ''}${old ? ` <b>This file ends ${m.ageMin > 2880 ? Math.round(m.ageMin / 1440) + ' days' : m.ageMin > 120 ? Math.round(m.ageMin / 60) + ' hours' : m.ageMin + ' minutes'} ago — the levels describe that moment, not now.</b>` : ''}`);
     const tfs = TF_ORDER.filter((t) => d.chart[t]);
     if (resetTf || !tfs.includes(state.tf)) state.tf = d.plan.tf && tfs.includes(d.plan.tf) ? d.plan.tf : tfs.includes('M5') ? 'M5' : tfs[tfs.length - 1];
     const drawTfs = () => segButtons($('tfs'), tfs.map((t) => [t, t]), state.tf, (k) => { state.tf = k; drawTfs(); setChart(); });
+    $('chartBox').hidden = false; $('galleryHere').innerHTML = '';
     drawTfs(); setChart();
     renderVerdict(); renderSizer(); renderChecklist(); renderContext(); renderNarrative(); renderNews();
+    $('visionRow').hidden = mode !== 'fusion';
+    if (mode === 'fusion') { $('shotPanel').hidden = false; $('galleryThere').innerHTML = gallery(); renderAiRead(); }
+  }
+
+  /* ---------- screenshot mode ---------- */
+  const gallery = () => `<div class="gallery">${state.shots.map((u, i) => `<img src="${u}" alt="Chart screenshot ${i + 1}">`).join('')}</div>`;
+
+  // The picture could not be matched to price data: everything comes from the AI's reading.
+  function renderImageOnly() {
+    const d = state.data; const m = d.meta;
+    banner('warn', `<b>${esc(m.symbol)} · ${esc(m.name)}</b> — price on your chart <b>${fmtP(m.price)}</b> (read at ${esc(m.asOfText)} New York). ${esc(m.note || '')}`);
+    $('chartBox').hidden = true; $('galleryHere').innerHTML = gallery();
+    $('visionRow').hidden = false; $('shotPanel').hidden = true;
+    renderVerdict(); renderSizer(); renderChecklist(); renderContextImage(); renderNarrative(); renderNews(); renderAiRead();
+  }
+
+  function renderAiRead() {
+    const d = state.data; const m = d.meta;
+    const v = d.mode === 'fusion' ? d.vision : { read: d.read, bias: d.bias };
+    const r = v.read;
+    $('aiModelLine').textContent = `${m.model} · confidence ${m.confidence}`;
+    let h = `<p class="aiP"><b>${esc(m.chartInstrument || 'Chart')}</b>${(m.chartTimeframes || m.timeframes || []).length ? ` · ${esc((m.chartTimeframes || m.timeframes).join(' + '))}` : ''}${m.period ? ` · ${esc(m.period)}` : ''}</p>`;
+    if (r.indicators.length) h += `<div class="ind">${r.indicators.map((i) => `<span class="chip ${i.dir === 1 ? 'b' : i.dir === -1 ? 's' : 'n'}">${i.dir === 1 ? 'bullish' : i.dir === -1 ? 'bearish' : 'neutral'}</span><span><b>${esc(i.name)}</b> — ${esc(i.reading)}</span>`).join('')}</div>`;
+    else h += '<p class="aiP muted">No indicators were found on the picture.</p>';
+    if (r.candles) h += `<p class="aiP"><b>Candles.</b> ${esc(r.candles)}</p>`;
+    if (r.summary) h += `<p class="aiP"><b>AI summary.</b> ${esc(r.summary)}</p>`;
+    if (r.problems) h += `<p class="aiP muted">Reading problems: ${esc(r.problems)}</p>`;
+    if (d.mode === 'fusion') {
+      const a = v.agree;
+      h += `<div class="aiBox">Picture alone: the AI leans <b class="${v.bias.dir === 1 ? 'up' : v.bias.dir === -1 ? 'dn' : 'am'}">${esc(v.bias.label)}</b>${a === true ? ' — agrees with the price data.' : a === false ? ` — <b>disagrees</b> with the price data (${esc(d.bias.label)}). The data covers Daily to M1, so it decides; treat the disagreement as a caution.` : '.'} The entry, stop and targets above come from the exact price data, not from pixel reading.</div>`;
+    } else h += '<div class="aiBox">These levels were read from the picture by the AI and then checked by the program. They can be a few ticks off — confirm them on your own chart.</div>';
+    $('aiRead').innerHTML = h;
+  }
+
+  function renderContextImage() {
+    const d = state.data; const { bias, session: s, range, read } = d;
+    const cls = bias.dir === 1 ? 'up' : bias.dir === -1 ? 'dn' : 'am';
+    const rows = (arr) => arr.slice(0, 4).map((p) => `<tr><td>${esc(p.label)}</td><td>${fmtP(p.price)}</td></tr>`).join('') || '<tr><td class="muted">none read</td><td></td></tr>';
+    let h = '<div class="ctx">';
+    h += `<div class="card"><div class="k">Bias read from the chart</div><div class="v ${cls}">${esc(bias.label)}</div><div class="s">${esc(bias.why)}</div></div>`;
+    h += `<div class="card"><div class="k">Session (New York time)</div><div class="v">${esc(s.nyTime)}</div><div class="s">${esc(s.killzone ? s.killzone.name : 'Outside killzones')}${s.next ? ` · next: ${esc(s.next.name)} ${esc(s.next.at)}` : ''}</div></div>`;
+    if (range) h += `<div class="card"><div class="k">Premium / discount</div><div class="v ${range.pos > 0.5 ? 'dn' : 'up'}">${Math.round(range.pos * 100)}% — ${range.pos > 0.5 ? 'Premium' : 'Discount'}</div><div class="pdbar"><i style="left:${Math.round(range.pos * 100)}%"></i></div><div class="s">${fmtP(range.lo)} · EQ ${fmtP(range.eq)} · ${fmtP(range.hi)}</div></div>`;
+    h += `<div class="card"><div class="k">Structure</div><div class="s">${esc(read.swingTrend || read.trend || 'not readable')}${read.events.map((e) => `<br>${e.dir === 1 ? '<span class="up">▲</span>' : e.dir === -1 ? '<span class="dn">▼</span>' : ''} ${esc(e.type)} ${fmtP(e.level)}`).join('')}</div></div>`;
+    h += `<div class="card"><div class="k">Buy-side liquidity above</div><table class="liqT">${rows(read.above)}</table></div>`;
+    h += `<div class="card"><div class="k">Sell-side liquidity below</div><table class="liqT">${rows(read.below)}</table></div>`;
+    h += `<div class="card"><div class="k">PD arrays read</div><div class="s">${read.arrays.map((z) => `${z.dir === 1 ? '<span class="up">Bullish</span>' : z.dir === -1 ? '<span class="dn">Bearish</span>' : ''} ${esc(z.type)} ${fmtP(z.low)}–${fmtP(z.high)}`).join('<br>') || 'none read'}</div></div>`;
+    h += `<div class="card"><div class="k">Price-data cross-check</div><div class="s">${d.engine ? (d.engine.sameMarket ? `Bias ${esc(d.engine.bias.label)} — used for the score.` : `Feed price ${fmtP(d.engine.price)} does not match this chart. Is the right market selected?`) : 'Not available — add a Daily or H1 screenshot for a firmer bias.'}</div></div>`;
+    $('context').innerHTML = `${h}</div>`;
   }
 
   function setChart() {
@@ -88,8 +142,8 @@
       h += `<tr class="stop"><td>Stop loss</td><td>${fmtP(p.stop)}</td><td>−${fmtP(p.risk)} · ${usd(p.riskUsd)}</td></tr>`;
       for (const t of p.targets) h += `<tr class="tp ${t.rr === p.preferred ? 'pref' : ''}"><td>Target ${t.rr}R</td><td>${fmtP(t.price)}</td><td>+${usd(p.riskUsd * t.rr)}</td></tr>`;
       h += '</table>';
-      const tags = [p.model, s.ote ? 'Inside OTE' : `${Math.round(s.retr * 100)}% retracement`, s.mssDisp ? 'Displacement' : 'Weak displacement', s.stopKind === 'raid' ? 'Stop beyond raid' : 'Tight stop'];
-      if (s.silverBullet) tags.push('Silver Bullet window');
+      const tags = p.tags && p.tags.length ? [...p.tags] : [p.model, s.ote ? 'Inside OTE' : `${Math.round(s.retr * 100)}% retracement`, s.mssDisp ? 'Displacement' : 'Weak displacement', s.stopKind === 'raid' ? 'Stop beyond raid' : 'Tight stop'];
+      if (s && s.silverBullet) tags.push('Silver Bullet window');
       h += `<div class="tags">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>`;
       h += `<p class="note">★ = preferred exit (furthest target with liquidity behind it). $ figures are per ${esc(m.symbol)} contract.</p>`;
     }
@@ -168,6 +222,96 @@
     $('headlines').innerHTML = !n.headlinesOk ? '<p class="muted">Headlines unavailable right now.</p>'
       : `<table class="tbl hl">${n.headlines.map((h) => `<tr><td><span class="dot ${h.score > 0 ? 'p' : h.score < 0 ? 'n' : ''}" title="${h.score > 0 ? 'bullish' : h.score < 0 ? 'bearish' : 'neutral'} keyword"></span></td><td>${/^https?:\/\//.test(h.link) ? `<a href="${esc(h.link)}" target="_blank" rel="noopener noreferrer">${esc(h.title)}</a>` : esc(h.title)}<div class="src">${esc(h.source)} · ${esc(h.when)}</div></td></tr>`).join('')}</table>`;
   }
+
+  /* ---------- screenshots: add, paste, drop ---------- */
+  function toDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      if (!/^image\/(png|jpeg|webp)$/.test(file.type)) return reject(new Error('Use a PNG, JPEG or WebP picture.'));
+      const r = new FileReader();
+      r.onerror = () => reject(new Error('Could not read that file.'));
+      r.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('That file is not a picture.'));
+        img.onload = () => {
+          const k = Math.min(1, 2000 / Math.max(img.width, img.height));
+          if (k === 1 && file.size < 1.5e6) return resolve(r.result);
+          const c = document.createElement('canvas');
+          c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          resolve(c.toDataURL('image/jpeg', 0.92));
+        };
+        img.src = r.result;
+      };
+      r.readAsDataURL(file);
+    });
+  }
+  function drawThumbs() {
+    $('thumbs').innerHTML = state.shots.map((u, i) => `<div class="thumb"><img src="${u}" alt="Screenshot ${i + 1}"><button type="button" data-i="${i}" title="Remove" aria-label="Remove screenshot ${i + 1}">×</button></div>`).join('');
+  }
+  async function addFiles(files) {
+    for (const f of files) {
+      if (state.shots.length >= 4) { banner('warn', 'Four pictures is the maximum. Remove one to add another.'); break; }
+      try { state.shots.push(await toDataUrl(f)); } catch (err) { banner('err', esc(err.message)); }
+    }
+    drawThumbs();
+  }
+  $('shots').onchange = (e) => { addFiles([...e.target.files]); e.target.value = ''; };
+  $('thumbs').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; e.preventDefault(); e.stopPropagation(); state.shots.splice(Number(b.dataset.i), 1); drawThumbs(); };
+  $('drop').onclick = (e) => { if (!e.target.closest('.thumb') && !e.target.closest('label')) $('shots').click(); };
+  $('drop').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('shots').click(); } };
+  $('drop').ondragover = (e) => { e.preventDefault(); $('drop').classList.add('over'); };
+  $('drop').ondragleave = () => $('drop').classList.remove('over');
+  $('drop').ondrop = (e) => { e.preventDefault(); $('drop').classList.remove('over'); addFiles([...e.dataTransfer.files]); };
+  document.addEventListener('paste', (e) => {
+    const files = [...(e.clipboardData ? e.clipboardData.files : [])].filter((f) => f.type.startsWith('image/'));
+    if (!files.length) return;
+    e.preventDefault();
+    if ($('source').value !== 'image') { $('source').value = 'image'; store.set('ict.source', 'image'); syncSource(); }
+    addFiles(files);
+  });
+
+  /* ---------- AI settings ---------- */
+  const loadAi = () => { try { return JSON.parse(store.get('ict.ai', 'null')) || {}; } catch { return {}; } };
+  state.ai = loadAi();
+  const preset = () => state.providers.find((p) => p.id === (state.ai.provider || 'ovh')) || state.providers[0];
+  function aiRequest() {
+    const p = preset();
+    if (!p) return null; // server falls back to its default
+    if (p.id === 'custom') return { baseUrl: state.ai.baseUrl || '', model: state.ai.model || '', apiKey: state.ai.apiKey || '' };
+    return { baseUrl: p.baseUrl, model: state.ai.model || p.models[0], apiKey: p.needsKey ? state.ai.apiKey || '' : '' };
+  }
+  function drawAiLine() {
+    const p = preset();
+    if (!p) { $('aiLine').textContent = ''; return; }
+    const r = aiRequest();
+    $('aiLine').textContent = `AI reader: ${p.name} · ${r.model || 'no model chosen'}${p.needsKey && !r.apiKey ? ' — needs a key: open AI settings' : ''}`;
+  }
+  function fillAiDialog() {
+    const id = $('aiProvider').value; const p = state.providers.find((x) => x.id === id);
+    const custom = id === 'custom';
+    $('aiHint').textContent = p.hint || '';
+    $('aiUrlWrap').hidden = !custom; $('aiModelCustomWrap').hidden = !custom;
+    $('aiModel').parentElement.hidden = custom;
+    $('aiModel').innerHTML = p.models.map((m) => `<option>${esc(m)}</option>`).join('');
+    if (state.ai.provider === id && p.models.includes(state.ai.model)) $('aiModel').value = state.ai.model;
+    $('aiKeyWrap').hidden = !(p.needsKey || custom);
+    $('aiKeyLink').hidden = !p.keyUrl; if (p.keyUrl) $('aiKeyLink').href = p.keyUrl;
+    $('aiKey').value = state.ai.provider === id ? state.ai.apiKey || '' : '';
+    if (custom) { $('aiUrl').value = state.ai.provider === 'custom' ? state.ai.baseUrl || '' : ''; $('aiModelCustom').value = state.ai.provider === 'custom' ? state.ai.model || '' : ''; }
+  }
+  $('aiBtn').onclick = () => {
+    if (!state.providers.length) return;
+    $('aiProvider').innerHTML = state.providers.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+    $('aiProvider').value = preset().id; fillAiDialog(); $('aiDlg').showModal();
+  };
+  $('aiProvider').onchange = fillAiDialog;
+  $('aiDlg').addEventListener('close', () => {
+    if ($('aiDlg').returnValue !== 'save') return;
+    const id = $('aiProvider').value; const custom = id === 'custom';
+    state.ai = { provider: id, model: custom ? $('aiModelCustom').value.trim() : $('aiModel').value, baseUrl: custom ? $('aiUrl').value.trim() : '', apiKey: $('aiKey').value.trim() };
+    store.set('ict.ai', JSON.stringify(state.ai)); drawAiLine();
+  });
+  fetch('/api/providers').then((r) => r.json()).then((p) => { state.providers = p; drawAiLine(); }).catch(() => {});
 
   // optional deep link: /?symbol=MGC&source=demo runs straight away
   const q = new URLSearchParams(location.search);

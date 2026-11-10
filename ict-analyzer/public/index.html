@@ -13,7 +13,8 @@
     <div class="seg" id="symbols" role="group" aria-label="Instrument"></div>
     <label class="field">Data
       <select id="source">
-        <option value="live">Live (delayed ~10 min)</option>
+        <option value="image">My chart screenshot (AI reads it)</option>
+        <option value="live">Live price data (delayed ~10 min)</option>
         <option value="csv">My CSV export</option>
         <option value="demo">Demo (simulated)</option>
       </select>
@@ -24,11 +25,40 @@
   </div>
 </header>
 
+<section id="uploader" class="uploader" hidden>
+  <div class="drop" id="drop" tabindex="0">
+    <p><b>Drop your chart screenshot here</b>, paste it with Ctrl+V, or <label class="link">choose a picture<input type="file" id="shots" accept="image/png,image/jpeg,image/webp" multiple></label></p>
+    <p class="muted">Up to 4 pictures of the same market — for example Daily, H1 and M5. Keep the price axis and your indicators visible. Crop out account numbers and balances: the picture is sent to the AI service you choose.</p>
+    <div id="thumbs" class="thumbs"></div>
+  </div>
+  <div class="upRow">
+    <input id="notes" type="text" maxlength="400" placeholder="Optional note for the AI — e.g. “5-minute chart, blue line is EMA 20, I want longs only”">
+    <button id="aiBtn" class="ghost" type="button">AI settings</button>
+  </div>
+  <p class="muted" id="aiLine"></p>
+</section>
+
+<dialog id="aiDlg">
+  <form method="dialog" class="dlg">
+    <h2>AI that reads your screenshot</h2>
+    <label>Service<select id="aiProvider"></select></label>
+    <p class="muted" id="aiHint"></p>
+    <label id="aiUrlWrap">Base URL<input id="aiUrl" type="url" placeholder="https://…/v1"></label>
+    <label>Model<select id="aiModel"></select></label>
+    <label id="aiModelCustomWrap">Model name<input id="aiModelCustom" type="text" placeholder="exact model id"></label>
+    <label id="aiKeyWrap">API key<input id="aiKey" type="password" autocomplete="off" placeholder="paste your key"><a id="aiKeyLink" target="_blank" rel="noopener noreferrer">Get a free key</a></label>
+    <p class="muted">The key is kept in this browser only and is sent only to the service you picked. A stronger model reads charts better: the no-key model is fine for prices and indicators, less good at spotting setups by eye.</p>
+    <div class="dlgRow"><button value="cancel" class="ghost">Cancel</button><button id="aiSave" value="save" class="primary">Save</button></div>
+  </form>
+</dialog>
+
 <div id="banner" class="banner" hidden></div>
 
 <main id="app" hidden>
   <section class="grid">
     <div class="panel chartPanel">
+      <div id="galleryHere"></div>
+      <div id="chartBox">
       <div class="chartBar">
         <div class="seg" id="tfs" role="group" aria-label="Timeframe"></div>
         <div class="layers" id="layers"></div>
@@ -39,12 +69,18 @@
         <span><i class="sw obB"></i>Order block / breaker</span><span><i class="sw liq"></i>Liquidity (dashed)</span>
         <span><i class="sw kz"></i>Killzones</span><span>Scroll = zoom · drag = move · double-click = reset</span>
       </div>
+      </div>
     </div>
 
     <aside class="side">
       <div class="panel verdict" id="verdict"></div>
       <div class="panel" id="sizer"></div>
     </aside>
+  </section>
+
+  <section class="grid2" id="visionRow" hidden>
+    <div class="panel" id="shotPanel"><h2>Your screenshot</h2><div id="galleryThere"></div></div>
+    <div class="panel"><h2>What the AI read on your chart <small id="aiModelLine"></small></h2><div id="aiRead"></div></div>
   </section>
 
   <section class="grid2">
@@ -65,8 +101,8 @@
 </main>
 
 <div id="empty" class="empty">
-  <h2>Pick an instrument and press Analyze</h2>
-  <p>The engine reads Daily → H4 → H1 → M15 → M5 → M1, maps liquidity, fair value gaps, order blocks, breakers, premium/discount, killzones and SMT, then scores the best trade.</p>
+  <h2>Add your chart and press Analyze</h2>
+  <p>Choose the market at the top, drop in a screenshot of your chart, and the AI reads the candles and the indicators on it. For gold and Nasdaq futures the exact ICT levels are then calculated from price data for the same market. Or switch Data to live prices: the engine reads Daily → H4 → H1 → M15 → M5 → M1, maps liquidity, fair value gaps, order blocks, breakers, premium/discount, killzones and SMT, then scores the best trade.</p>
 </div>
 
 <script src="chart.js"></script>
