@@ -229,3 +229,33 @@ test('the no-key provider is the default and every preset is usable', () => {
     if (p.needsKey) assert.match(p.keyUrl, /^https:\/\//);
   }
 });
+
+test('axis labels and marks are read for the picture, and marks that cannot be placed are dropped', () => {
+  const raw = longRead();
+  raw.axis = { labels: ['4,140', 4130, 'x', 4120], tags: [4090, null], plot_right: 0.94 };
+  raw.marks = [
+    { kind: 'fvg', dir: 'bullish', top: 4078, bottom: 4074, x: 1.4, label: 'FVG' },
+    { kind: 'liquidity', dir: 'bearish', price: 9999 }, // nowhere near the chart
+    { kind: 'wiggle', price: 4080 }, // unknown kind
+    { kind: 'sweep', dir: 'bullish', price: 4072, x: 0.5 },
+    { kind: 'fvg', top: 4078, bottom: 4078 }, // no height
+  ];
+  const a = build(raw).annot;
+  assert.deepEqual(a.labels, [4140, 4130, 4120]);
+  assert.deepEqual(a.tags, [4090]);
+  assert.equal(a.plotRight, 0.94);
+  assert.deepEqual(a.marks.map((m) => m.kind), ['fvg', 'sweep']);
+  assert.equal(a.marks[0].x, 1); // clamped into the picture
+  assert.equal(a.ok, false); // placing them needs the picture scan in the page
+});
+
+test('the built-in example is a clean long with room to the target', () => {
+  const E = require('../site/example.js');
+  const ex = E.makeExample();
+  assert.deepEqual(E.makeExample().candles, ex.candles, 'deterministic');
+  assert.ok(ex.gapTop > ex.gapBottom && ex.raidLow < ex.gapBottom);
+  const r = build(E.exampleRaw(ex), { news: calmNews });
+  assert.equal(r.plan.action, 'LONG');
+  assert.deepEqual(r.plan.targets.map((t) => t.rr), RR_TARGETS);
+  assert.equal(r.annot.marks.length, 4);
+});

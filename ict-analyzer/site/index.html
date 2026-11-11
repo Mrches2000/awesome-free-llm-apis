@@ -2,345 +2,356 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@500;700&display=swap">
 <style>
-/* Layout: one narrow working column — a clock strip, three tabs (Analyze · Journal · Playbook), cards below. */
+/* Layout: a slim bar, then a cockpit. The picture with its marks on the left, the verdict and the trade on the right. Detail stays folded away. */
 :root {
-  --bg: #f2f4f8; --surface: #ffffff; --surface-2: #e8ecf3; --line: #d3dae6; --fg: #121826; --muted: #586377;
-  --accent: #9a5b06; --accent-ink: #ffffff; --accent-soft: #f6ead2;
-  --bull: #0d7566; --bear: #bf3029; --warn: #a85a06; --bull-soft: #dcf3ee; --bear-soft: #fbe3e1; --warn-soft: #fbedd3;
+  --bg: #090d14; --surface: #0f1521; --surface-2: #161e2e; --line: #212c40; --fg: #e9eef7; --muted: #8493ae;
+  --accent: #8da2ff; --accent-ink: #0a1030; --accent-soft: #1b2447;
+  --bull: #2ee6b8; --bear: #ff5d73; --warn: #ffc04d; --bull-soft: #0e2d2b; --bear-soft: #33171d; --warn-soft: #332a12;
   --display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
   --body: "Inter", "Segoe UI", system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
-  --radius: 10px;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0d1118; --surface: #151b26; --surface-2: #1e2634; --line: #2b3547; --fg: #e8ecf3; --muted: #97a3b8;
-    --accent: #e3b455; --accent-ink: #1b1405; --accent-soft: #2e2613;
-    --bull: #35c2aa; --bear: #f26b63; --warn: #f0b545; --bull-soft: #12302c; --bear-soft: #391c1b; --warn-soft: #33290f;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #0d1118; --surface: #151b26; --surface-2: #1e2634; --line: #2b3547; --fg: #e8ecf3; --muted: #97a3b8;
-  --accent: #e3b455; --accent-ink: #1b1405; --accent-soft: #2e2613;
-  --bull: #35c2aa; --bear: #f26b63; --warn: #f0b545; --bull-soft: #12302c; --bear-soft: #391c1b; --warn-soft: #33290f;
+  --radius: 14px; --shadow: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 12px 30px -18px rgba(0, 0, 0, .7);
   color-scheme: dark;
 }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #eff2f8; --surface: #ffffff; --surface-2: #e8edf5; --line: #d5ddea; --fg: #0e1626; --muted: #5a6985;
+    --accent: #3d4fd6; --accent-ink: #ffffff; --accent-soft: #e4e8ff;
+    --bull: #0a8f73; --bear: #d3304a; --warn: #b87400; --bull-soft: #d9f3ec; --bear-soft: #fbe1e5; --warn-soft: #fbecce;
+    --shadow: 0 10px 28px -20px rgba(20, 30, 60, .5);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #eff2f8; --surface: #ffffff; --surface-2: #e8edf5; --line: #d5ddea; --fg: #0e1626; --muted: #5a6985;
+  --accent: #3d4fd6; --accent-ink: #ffffff; --accent-soft: #e4e8ff;
+  --bull: #0a8f73; --bear: #d3304a; --warn: #b87400; --bull-soft: #d9f3ec; --bear-soft: #fbe1e5; --warn-soft: #fbecce;
+  --shadow: 0 10px 28px -20px rgba(20, 30, 60, .5);
+  color-scheme: light;
+}
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--fg); font: 15px/1.55 var(--body); }
-.wrap { max-width: 1080px; margin: 0 auto; padding-block: 18px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 16px; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 14px 36px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 16px; }
 h1, h2, h3, p { margin: 0; }
 h1, h2, h3 { font-family: var(--display); text-wrap: balance; }
-button, input, select, textarea { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 .muted { color: var(--muted); }
 .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.up { color: var(--bull); } .dn { color: var(--bear); } .am { color: var(--warn); }
 
-.top { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; justify-content: space-between; }
-.brand { display: flex; align-items: baseline; gap: 10px; }
-.brand h1 { font-size: 22px; letter-spacing: -.2px; }
-.brand span { color: var(--muted); font-size: 13px; }
-.clock { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+/* bar */
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; justify-content: space-between; }
+.brand { display: flex; align-items: center; gap: 10px; font: 700 18px var(--display); letter-spacing: -.2px; }
+.mark { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); font: 700 13px var(--display); }
+.tabs { display: flex; gap: 2px; padding: 3px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.tabs a { padding: 7px 15px; text-decoration: none; color: var(--muted); font-weight: 600; font-size: 14px; border-radius: 9px; }
+.tabs a.on { background: var(--surface-2); color: var(--fg); box-shadow: 0 0 0 1px var(--line); }
+.tabs .n { font: 500 11px var(--mono); margin-left: 6px; color: var(--muted); }
+.clock { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12.5px; }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 99px; background: var(--surface); border: 1px solid var(--line); white-space: nowrap; }
-.pill.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
-.pill.off { color: var(--muted); }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
-.tabs a { padding: 9px 16px; text-decoration: none; color: var(--muted); font-weight: 600; border-bottom: 2px solid transparent; margin-bottom: -1px; border-radius: 6px 6px 0 0; }
-.tabs a.on { color: var(--fg); border-bottom-color: var(--accent); }
-.tabs a .n { font: 500 12px var(--mono); margin-left: 6px; color: var(--muted); }
+.pill.on { background: var(--bull-soft); border-color: var(--bull); color: var(--bull); font-weight: 600; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
 .view { display: grid; gap: 16px; }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; min-width: 0; }
-.card > h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); margin-bottom: 12px; font-family: var(--body); font-weight: 700; }
-.card > h2 small { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 6px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; min-width: 0; box-shadow: var(--shadow); }
+.card > h2 { font: 600 12px var(--body); text-transform: uppercase; letter-spacing: .9px; color: var(--muted); margin-bottom: 12px; }
 .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
 
-/* analyze form */
-.form { display: grid; gap: 14px; }
-.row { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: end; }
-.field { display: grid; gap: 5px; font-size: 12px; color: var(--muted); min-width: 0; }
-.field.grow { flex: 1 1 240px; }
-.field select, .field input { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; color: var(--fg); font-size: 14px; min-width: 0; width: 100%; }
-.seg { display: inline-flex; background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 3px; }
-.seg button { border: 0; background: none; padding: 7px 13px; border-radius: 6px; cursor: pointer; color: var(--muted); font-weight: 600; }
-.seg button.on { background: var(--surface); color: var(--fg); box-shadow: 0 0 0 1px var(--line); }
-.drop { border: 2px dashed var(--line); border-radius: var(--radius); padding: 18px; text-align: center; cursor: pointer; background: var(--bg); }
-.drop.over, .drop:focus-visible { border-color: var(--accent); }
-.drop p { max-width: 640px; margin: 3px auto; }
-.linkish { color: var(--accent); text-decoration: underline; font-weight: 600; }
-.thumbs { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 12px; }
-.thumbs:empty { display: none; }
-.thumb { position: relative; }
-.thumb img { height: 92px; border-radius: 6px; border: 1px solid var(--line); display: block; }
-.thumb button { position: absolute; top: -8px; right: -8px; width: 24px; height: 24px; border-radius: 50%; border: 0; background: var(--bear); color: #fff; cursor: pointer; font-weight: 700; line-height: 1; }
-.btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 9px; padding: 10px 22px; font-weight: 700; cursor: pointer; }
+/* buttons */
+.btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px; padding: 10px 24px; font-weight: 700; }
 .btn:disabled { opacity: .55; cursor: progress; }
 .btn.ghost { background: none; color: var(--fg); border: 1px solid var(--line); font-weight: 600; padding: 8px 14px; }
+.btn.ghost:hover { border-color: var(--muted); }
 .btn.small { padding: 5px 11px; font-size: 13px; }
 .btn.danger { color: var(--bear); }
-.status { font-size: 14px; }
+.seg { display: inline-flex; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+.seg button { border: 0; background: none; padding: 6px 13px; border-radius: 7px; color: var(--muted); font-weight: 600; font-size: 14px; }
+.seg button.on { background: var(--surface-2); color: var(--fg); box-shadow: 0 0 0 1px var(--line); }
+
+/* composer */
+.composer { display: grid; gap: 12px; }
+.cRow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.spacer { flex: 1 1 20px; }
+.drop { border: 1.5px dashed var(--line); border-radius: 12px; padding: 16px; text-align: center; background: var(--bg); cursor: pointer; display: grid; gap: 10px; justify-items: center; transition: border-color .15s; }
+.drop:hover, .drop.over, .drop:focus-visible { border-color: var(--accent); }
+.dropMsg { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 12px; color: var(--muted); }
+.dropMsg b { color: var(--fg); font-size: 16px; }
+.dropMsg svg { width: 26px; height: 26px; stroke: var(--accent); fill: none; stroke-width: 1.6; }
+.drop.has { padding: 10px 14px; }
+.drop.has .dropMsg { display: none; }
+.drop.has::after { content: "Click to add another picture"; color: var(--muted); font-size: 12px; }
+.thumbs { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.thumbs:empty { display: none; }
+.thumb { position: relative; }
+.thumb img { height: 70px; border-radius: 8px; border: 1px solid var(--line); display: block; }
+.thumb button { position: absolute; top: -7px; right: -7px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: var(--bear); color: #fff; font-weight: 700; line-height: 1; }
+.opts { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: end; padding-top: 12px; border-top: 1px solid var(--line); }
+.field { display: grid; gap: 4px; font-size: 12px; color: var(--muted); min-width: 0; }
+.field.grow { flex: 1 1 220px; }
+.field select, .field input { background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; color: var(--fg); font-size: 14px; width: 100%; min-width: 0; }
+.dataRow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+.status { font-size: 13.5px; min-height: 1.4em; color: var(--muted); }
 .status.err { color: var(--bear); } .status.ok { color: var(--bull); }
-.spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; vertical-align: -2px; margin-right: 8px; }
+.spin { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; vertical-align: -2px; margin-right: 8px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
 
-/* result */
-.flag { display: inline-block; font: 700 11px var(--body); letter-spacing: .8px; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; background: var(--warn-soft); color: var(--warn); margin-bottom: 10px; }
-.vhead { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
-.badge { font: 700 22px var(--display); letter-spacing: 1px; padding: 6px 16px; border-radius: 8px; border: 1px solid; }
-.badge.LONG { background: var(--bull-soft); color: var(--bull); } .badge.SHORT { background: var(--bear-soft); color: var(--bear); } .badge.WAIT { background: var(--warn-soft); color: var(--warn); }
-.badge.sm { font-size: 13px; padding: 2px 9px; letter-spacing: .5px; }
-.vsub b { font-size: 16px; } .vsub { color: var(--muted); font-size: 13px; }
-.meter { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; display: flex; margin: 12px 0 4px; }
-.meter i { display: block; height: 100%; } .meter .a { background: var(--accent); } .meter .b { background: var(--muted); }
-.meterLbl { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
-.why { background: var(--surface-2); border-radius: 8px; padding: 9px 12px; margin-top: 10px; font-size: 14px; }
-.lv { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-.lv td { padding: 7px 4px; border-top: 1px solid var(--line); }
-.lv td:first-child { color: var(--muted); }
-.lv td:nth-child(2) { text-align: right; font: 700 15px var(--mono); font-variant-numeric: tabular-nums; }
-.lv td:nth-child(3) { text-align: right; color: var(--muted); font-size: 12.5px; }
-.lv .stop td:nth-child(2) { color: var(--bear); } .lv .tp td:nth-child(2) { color: var(--bull); }
-.lv .pref td:first-child::after { content: " ★"; color: var(--accent); }
-.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.tag { font-size: 12px; padding: 2px 9px; border-radius: 99px; background: var(--surface-2); color: var(--muted); }
-.size { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); align-items: center; font-size: 14px; }
-.size input { width: 96px; text-align: right; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font-family: var(--mono); }
-.size b { font: 700 17px var(--mono); }
-.ind { display: grid; grid-template-columns: auto 1fr; gap: 7px 10px; margin: 6px 0 12px; align-items: start; }
-.chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap; margin-top: 2px; }
-.chip.b { background: var(--bull-soft); color: var(--bull); } .chip.s { background: var(--bear-soft); color: var(--bear); } .chip.n { background: var(--surface-2); color: var(--muted); }
-.para { margin: 8px 0; }
-.ck { display: grid; grid-template-columns: 1fr 92px; gap: 2px 12px; padding: 9px 0; border-top: 1px solid var(--line); }
-.ck:first-of-type { border-top: 0; padding-top: 0; }
-.ck .t { font-weight: 600; } .ck .d { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
-.ck .p { text-align: right; font: 500 12px var(--mono); color: var(--muted); }
-.bar { height: 5px; border-radius: 9px; background: var(--surface-2); margin-top: 4px; overflow: hidden; }
-.bar i { display: block; height: 100%; background: var(--bull); } .bar.mid i { background: var(--warn); } .bar.low i { background: var(--bear); }
-.narr { columns: 2; column-gap: 28px; }
-.narr section { break-inside: avoid; margin-bottom: 16px; }
-.narr h3 { font-size: 15px; margin-bottom: 6px; color: var(--accent); }
-.narr ul { margin: 0; padding-left: 18px; } .narr li { margin: 4px 0; }
-.shot img { width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; }
-
-/* price data + chart */
-.dataRow { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
-.chartBar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.layers { display: flex; flex-wrap: wrap; gap: 6px; }
-.layers button { border: 1px solid var(--line); background: none; color: var(--muted); border-radius: 99px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
-.layers button.on { color: var(--fg); background: var(--surface-2); }
-.chartWrap { position: relative; height: 440px; }
-.chartWrap canvas { width: 100%; height: 100%; display: block; border-radius: 8px; cursor: crosshair; touch-action: none; }
+/* cockpit */
+.cockpit { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+.stage { display: grid; gap: 10px; min-width: 0; }
+.stageBar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: none; color: var(--muted); border-radius: 99px; padding: 4px 11px; font-size: 12.5px; font-weight: 600; }
+.chips button i { width: 8px; height: 8px; border-radius: 50%; background: var(--c, var(--muted)); opacity: .4; }
+.chips button.on { color: var(--fg); background: var(--surface-2); }
+.chips button.on i { opacity: 1; }
+.shot { position: relative; line-height: 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #0b0f17; }
+.shot img { width: 100%; height: auto; display: block; }
+.shot canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.flag { position: absolute; top: 10px; left: 10px; z-index: 2; font: 700 11px var(--body); letter-spacing: .8px; text-transform: uppercase; padding: 3px 9px; border-radius: 6px; background: var(--warn); color: #1c1400; line-height: 1.4; }
+.chartWrap { position: relative; height: 440px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #0e1219; }
+.chartWrap canvas { width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
 .tip { position: absolute; top: 8px; left: 10px; font: 12px var(--mono); color: #c9d1e0; background: rgba(11, 14, 19, .82); padding: 3px 8px; border-radius: 6px; pointer-events: none; }
+.stageNote { font-size: 12.5px; color: var(--muted); min-height: 1.3em; }
+.stageNote.warn { color: var(--warn); }
+
+/* verdict */
+.verdict { display: grid; gap: 14px; position: relative; overflow: hidden; }
+.verdict::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: var(--vc, var(--warn)); }
+.verdict.bull { --vc: var(--bull); } .verdict.bear { --vc: var(--bear); } .verdict.warn { --vc: var(--warn); }
+.vTop { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.act { font: 700 46px/1 var(--display); letter-spacing: 1px; color: var(--vc); }
+.sub { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tag { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px; background: var(--surface-2); color: var(--muted); }
+.tag.b { background: var(--bull-soft); color: var(--bull); } .tag.s { background: var(--bear-soft); color: var(--bear); }
+.ring { width: 78px; height: 78px; flex: none; }
+.ring .trk { fill: none; stroke: var(--surface-2); stroke-width: 6; }
+.ring .val { fill: none; stroke: var(--vc); stroke-width: 6; stroke-linecap: round; }
+.ring text { fill: var(--fg); font: 700 22px var(--display); text-anchor: middle; }
+.ring .cap { font: 600 9px var(--body); fill: var(--muted); letter-spacing: .6px; }
+.line1 { font-size: 16px; font-weight: 600; line-height: 1.35; }
+.bmeter { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; font-size: 12px; font-weight: 600; }
+.bmeter .track { height: 6px; border-radius: 9px; position: relative; background: linear-gradient(90deg, var(--bear), var(--surface-2) 50%, var(--bull)); }
+.bmeter .track i { position: absolute; top: -4px; width: 4px; height: 14px; border-radius: 2px; background: var(--fg); transform: translateX(-2px); }
+.lv { width: 100%; border-collapse: collapse; }
+.lv td { padding: 8px 0; border-top: 1px solid var(--line); }
+.lv td:first-child { color: var(--muted); font-size: 13px; }
+.lv td:nth-child(2) { text-align: right; font: 700 17px var(--mono); font-variant-numeric: tabular-nums; }
+.lv td:nth-child(3) { text-align: right; color: var(--muted); font: 500 12.5px var(--mono); padding-left: 10px; white-space: nowrap; }
+.lv .stop td:nth-child(2) { color: var(--bear); } .lv .tp td:nth-child(2) { color: var(--bull); }
+.lv .pref td:first-child::after { content: " ★"; color: var(--warn); }
+.lv.ref { opacity: .7; }
+.size { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 13px; color: var(--muted); }
+.size input { width: 86px; text-align: right; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font-family: var(--mono); color: var(--fg); }
+.size b { font: 700 18px var(--mono); color: var(--fg); }
+details.why1 summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+details.why1 p { margin-top: 6px; font-size: 13px; color: var(--muted); }
+
+/* score cells */
+.cells { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; }
+.cell { text-align: left; background: var(--surface-2); border: 1px solid transparent; border-radius: 10px; padding: 8px 10px 9px; display: grid; gap: 5px; }
+.cell:hover, .cell.on { border-color: var(--muted); }
+.cell .t { display: flex; justify-content: space-between; gap: 6px; font-size: 12.5px; font-weight: 600; }
+.cell .t span:last-child { font: 500 11.5px var(--mono); color: var(--muted); }
+.cell .b { height: 4px; border-radius: 9px; background: var(--bg); overflow: hidden; display: block; }
+.cell .b i { display: block; height: 100%; border-radius: 9px; background: var(--bull); }
+.cell.mid .b i { background: var(--warn); } .cell.low .b i { background: var(--bear); } .cell.nw .b i { background: var(--accent); }
+.cellTip { margin-top: 10px; font-size: 13.5px; color: var(--muted); min-height: 1.4em; }
+.cellHead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.cellHead b { color: var(--fg); font-size: 13px; }
+
+/* details */
+details.more > summary { cursor: pointer; list-style: none; padding: 13px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); font-weight: 600; display: flex; justify-content: space-between; color: var(--muted); }
+details.more > summary::after { content: "+"; font: 500 18px var(--mono); }
+details.more[open] > summary::after { content: "–"; }
+details.more > summary::-webkit-details-marker { display: none; }
+.moreBody { display: grid; gap: 16px; margin-top: 16px; }
+.para { margin: 6px 0; font-size: 14px; }
+.ind { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; margin: 6px 0 10px; align-items: start; font-size: 14px; }
+.chip { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; white-space: nowrap; margin-top: 2px; }
+.chip.b { background: var(--bull-soft); color: var(--bull); } .chip.s { background: var(--bear-soft); color: var(--bear); } .chip.n { background: var(--surface-2); color: var(--muted); }
 .ctx { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.ctx > div { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+.ctx > div { background: var(--surface-2); border-radius: 10px; padding: 9px 12px; min-width: 0; }
 .ctx .k { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
 .ctx .v { font-weight: 700; margin-top: 2px; }
 .ctx .s { color: var(--muted); font-size: 13px; margin-top: 2px; overflow-wrap: anywhere; }
-.srcNote { color: var(--muted); font-size: 13px; margin-top: 10px; }
-
-/* code */
-.codeWrap { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 14px; align-items: start; }
-.files { display: grid; gap: 2px; max-height: 620px; overflow: auto; }
-.files button { text-align: left; border: 0; background: none; padding: 6px 9px; border-radius: 6px; cursor: pointer; font: 500 12.5px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
-.files button.on { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
-.files .grp { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); padding: 10px 9px 3px; }
-.codeHead { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.codeHead b { font: 700 14px var(--mono); overflow-wrap: anywhere; }
-pre.code { margin: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow: auto; max-height: 620px; font: 12.5px/1.55 var(--mono); tab-size: 2; }
+.acc { display: grid; gap: 8px; }
+.acc details { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 0 16px; }
+.acc summary { cursor: pointer; padding: 11px 0; font-weight: 600; font-size: 14px; }
+.acc ul { margin: 0 0 12px; padding-left: 18px; font-size: 13.5px; color: var(--muted); } .acc li { margin: 3px 0; }
+.srcNote { font-size: 12.5px; color: var(--muted); }
 
 /* journal */
 .stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
 .stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
 .stat .k { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); }
-.stat .v { font: 700 22px var(--mono); margin-top: 2px; }
-.up { color: var(--bull); } .dn { color: var(--bear); }
-.entry { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: 12px 16px; align-items: start; padding: 14px 0; border-top: 1px solid var(--line); }
+.stat .v { font: 700 24px var(--mono); margin-top: 2px; }
+.entry { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 10px 16px; align-items: start; padding: 14px 0; border-top: 1px solid var(--line); }
 .entry:first-child { border-top: 0; padding-top: 0; }
-.entry .pic { width: 120px; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-2); display: block; }
+.entry .pic { width: 110px; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); display: block; }
 .entry .head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .entry .when { color: var(--muted); font-size: 13px; }
-.entry .lvls { font: 500 13px var(--mono); margin-top: 6px; overflow-wrap: anywhere; }
+.entry .lvls { font: 500 13px var(--mono); margin-top: 6px; overflow-wrap: anywhere; color: var(--muted); }
 .entry .ctl { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
-.entry .ctl select, .entry .ctl input { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font-size: 13px; min-width: 0; }
-.entry .ctl .r { width: 74px; text-align: right; font-family: var(--mono); }
-.entry .ctl .note { flex: 1 1 180px; }
+.entry .ctl select, .entry .ctl input { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font-size: 13px; min-width: 0; color: var(--fg); }
+.entry .ctl .r { width: 72px; text-align: right; font-family: var(--mono); }
+.entry .ctl .note { flex: 1 1 160px; }
 .entry .side { display: grid; gap: 6px; justify-items: end; }
-.empty { text-align: center; padding: 30px 10px; color: var(--muted); }
+.badge { font: 700 12px var(--display); letter-spacing: .6px; padding: 2px 9px; border-radius: 6px; }
+.badge.LONG { background: var(--bull-soft); color: var(--bull); } .badge.SHORT { background: var(--bear-soft); color: var(--bear); } .badge.WAIT { background: var(--warn-soft); color: var(--warn); }
+.empty { text-align: center; padding: 28px 10px; color: var(--muted); }
 .empty b { display: block; color: var(--fg); font: 700 17px var(--display); margin-bottom: 6px; }
 
-/* playbook */
-.steps { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+/* playbook + code */
+.steps { margin: 0; padding-left: 22px; display: grid; gap: 7px; }
 .tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
 .tbl th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); padding: 6px 8px 6px 0; }
-.tbl td { padding: 7px 8px 7px 0; border-top: 1px solid var(--line); vertical-align: top; }
-.tbl td.num, .tbl th.num { text-align: right; padding-right: 0; }
+.tbl td { padding: 7px 8px 7px 0; border-top: 1px solid var(--line); }
+.tbl .r { text-align: right; padding-right: 0; }
 .scroll { overflow-x: auto; }
-dl.gloss { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; }
+dl.gloss { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 14px; }
 dl.gloss dt { font-weight: 700; } dl.gloss dd { margin: 0; color: var(--muted); }
-.foot { color: var(--muted); font-size: 12.5px; }
+.codeWrap { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 14px; align-items: start; }
+.files { display: grid; gap: 2px; max-height: 620px; overflow: auto; }
+.files button { text-align: left; border: 0; background: none; padding: 6px 9px; border-radius: 6px; font: 500 12.5px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.files button.on { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.files .grp { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); padding: 10px 9px 3px; }
+.codeHead { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.codeHead b { font: 700 14px var(--mono); overflow-wrap: anywhere; }
+pre.code { margin: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; overflow: auto; max-height: 620px; font: 12.5px/1.55 var(--mono); tab-size: 2; }
+.foot { color: var(--muted); font-size: 12px; text-align: center; }
 
-@media (max-width: 820px) {
+@media (max-width: 920px) {
+  .cockpit { grid-template-columns: minmax(0, 1fr); }
+  .verdict { order: -1; }
   .two { grid-template-columns: minmax(0, 1fr); }
-  .narr { columns: 1; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .entry { grid-template-columns: 84px minmax(0, 1fr); } .entry .pic { width: 84px; }
+  .entry .side { grid-column: 1 / -1; justify-items: start; grid-auto-flow: column; justify-content: start; }
+  .codeWrap { grid-template-columns: minmax(0, 1fr); } .files { max-height: 170px; }
   .ctx { grid-template-columns: minmax(0, 1fr); }
   .chartWrap { height: 340px; }
-  .codeWrap { grid-template-columns: minmax(0, 1fr); }
-  .files { max-height: 180px; }
-  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .entry { grid-template-columns: 84px minmax(0, 1fr); }
-  .entry .pic { width: 84px; }
-  .entry .side { grid-column: 1 / -1; justify-items: start; grid-auto-flow: column; justify-content: start; }
   dl.gloss { grid-template-columns: minmax(0, 1fr); gap: 2px; } dl.gloss dd { margin-bottom: 8px; }
+  .act { font-size: 40px; }
 }
 </style>
 
 <div class="wrap">
-  <header class="top">
-    <div class="brand"><h1>ICT Trade Desk</h1><span>Gold and Nasdaq · private</span></div>
+  <header class="bar">
+    <div class="brand"><span class="mark">ICT</span>Trade Desk</div>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#analyze" data-v="analyze">Analyze</a>
+      <a href="#journal" data-v="journal">Journal<span class="n" id="jCount"></span></a>
+      <a href="#playbook" data-v="playbook">Playbook</a>
+      <a href="#code" data-v="code">Code</a>
+    </nav>
     <div class="clock" id="clock" aria-live="polite"></div>
   </header>
 
-  <nav class="tabs" aria-label="Sections">
-    <a href="#analyze" data-v="analyze">Analyze</a>
-    <a href="#journal" data-v="journal">Journal<span class="n" id="jCount"></span></a>
-    <a href="#playbook" data-v="playbook">Playbook</a>
-    <a href="#code" data-v="code">Code</a>
-  </nav>
-
-  <!-- ============================== ANALYZE ============================== -->
+  <!-- ANALYZE -->
   <main class="view" id="v-analyze">
-    <section class="card form">
-      <div class="row">
-        <div class="field"><span id="mkLbl">Market</span><div class="seg" id="markets" role="group" aria-labelledby="mkLbl"></div></div>
-        <label class="field grow" for="note">Note for Claude (optional)
-          <input id="note" type="text" maxlength="400" placeholder="e.g. 5-minute chart, blue line is EMA 20, longs only">
-        </label>
-      </div>
-      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Add chart screenshots">
-        <p><b>Drop your chart screenshot here</b>, paste it, or <span class="linkish">choose a picture</span></p>
-        <p class="muted">Up to 3 pictures of the same market, for example Daily, H1 and M5. Keep the price axis and your indicators visible. Crop out account numbers and balances.</p>
-        <input type="file" id="files" accept="image/png,image/jpeg,image/webp" multiple hidden>
-        <div class="thumbs" id="thumbs"></div>
-      </div>
-      <div class="field">
-        <span>Price data from your chart (optional). With it, every ICT level is calculated exactly from your candles.</span>
-        <div class="dataRow">
-          <button class="btn ghost small" id="csvBtn" type="button">Add price data (CSV)</button>
-          <span id="csvName" class="muted">None added. In TradingView: 1 or 5 minute chart → menu → Export chart data…</span>
-          <button class="btn ghost small danger" id="csvClear" type="button" hidden>Remove</button>
-          <input type="file" id="csv" accept=".csv,text/csv,text/plain" hidden>
-        </div>
-      </div>
-      <div class="row">
-        <label class="field" for="cal">Big news in the next hour? <a class="linkish" href="https://www.forexfactory.com/calendar" target="_blank" rel="noopener noreferrer">Open calendar</a>
-          <select id="cal">
-            <option value="none">No high-impact release</option>
-            <option value="soon">Yes, within 30 minutes</option>
-            <option value="hour">Yes, in 30 to 60 minutes</option>
-            <option value="unknown" selected>I have not checked</option>
-          </select>
-        </label>
-        <label class="field" for="tone">News tone for this market today
-          <select id="tone">
-            <option value="-0.6">Bearish</option>
-            <option value="-0.25">Slightly bearish</option>
-            <option value="0" selected>Neutral or mixed</option>
-            <option value="0.25">Slightly bullish</option>
-            <option value="0.6">Bullish</option>
-          </select>
-        </label>
-        <button class="btn" id="run" type="button">Analyze my chart</button>
+    <section class="card composer">
+      <div class="cRow">
+        <div class="seg" id="markets" role="group" aria-label="Market"></div>
+        <span class="spacer"></span>
+        <button class="btn ghost small" id="optBtn" type="button" aria-expanded="false" aria-controls="opts">Options</button>
+        <button class="btn" id="run" type="button">Analyze</button>
         <button class="btn ghost" id="stop" type="button" hidden>Stop</button>
       </div>
-      <p class="status muted" id="status" role="status">Add a screenshot, price data, or both. Claude reads the candles and indicators on your picture; the ICT algorithm checks every number and works out entry, stop and the 1.5R, 2R and 2.5R targets.</p>
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Add chart screenshots">
+        <div class="dropMsg">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16l4-4 3 3 4-5 5 6M4 5h16v14H4z" stroke-linejoin="round"/></svg>
+          <b>Drop your chart here</b><span>or paste it, or choose a file · up to 3 pictures, entry chart first</span>
+        </div>
+        <div class="thumbs" id="thumbs"></div>
+        <input type="file" id="files" accept="image/png,image/jpeg,image/webp" multiple hidden>
+      </div>
+      <div class="opts" id="opts" hidden>
+        <label class="field" for="cal">Big news in the next hour?
+          <select id="cal"><option value="none">None</option><option value="soon">Within 30 minutes</option><option value="hour">In 30 to 60 minutes</option><option value="unknown" selected>Not checked</option></select>
+        </label>
+        <label class="field" for="tone">News tone today
+          <select id="tone"><option value="-0.6">Bearish</option><option value="-0.25">Slightly bearish</option><option value="0" selected>Neutral</option><option value="0.25">Slightly bullish</option><option value="0.6">Bullish</option></select>
+        </label>
+        <label class="field grow" for="note">Note for Claude
+          <input id="note" type="text" maxlength="400" placeholder="e.g. longs only, blue line is EMA 20">
+        </label>
+        <div class="field"><span>Price data (CSV from your chart)</span>
+          <div class="dataRow"><button class="btn ghost small" id="csvBtn" type="button">Add CSV</button><span id="csvName" class="muted">none</span><button class="btn ghost small danger" id="csvClear" type="button" hidden>Remove</button><input type="file" id="csv" accept=".csv,text/csv,text/plain" hidden></div>
+        </div>
+      </div>
+      <p class="status" id="status" role="status"></p>
     </section>
     <div class="view" id="result"></div>
   </main>
 
-  <!-- ============================== JOURNAL ============================== -->
+  <!-- JOURNAL -->
   <main class="view" id="v-journal" hidden>
     <div class="stats" id="stats"></div>
-    <section class="card"><h2>Saved analyses <small id="jNote"></small></h2><div id="journal"></div></section>
+    <section class="card"><h2>Saved analyses <small id="jNote" class="muted"></small></h2><div id="journal"></div></section>
     <div class="view" id="detail"></div>
   </main>
 
-  <!-- ============================== PLAYBOOK ============================== -->
+  <!-- PLAYBOOK -->
   <main class="view" id="v-playbook" hidden>
-    <section class="card"><h2>The routine, every session</h2>
+    <section class="card"><h2>Every session</h2>
       <ol class="steps">
-        <li><b>Check the calendar.</b> No new trade within 30 minutes before CPI, NFP, FOMC or any other red-folder USD release.</li>
-        <li><b>Get the bias.</b> Screenshot the Daily or H1 chart. Know which side the market is drawn to before you look at a 5-minute chart.</li>
-        <li><b>Wait for a killzone.</b> London, New York AM or New York PM. Never NY lunch.</li>
-        <li><b>Screenshot the entry chart</b> (M5 or M1) and press Analyze. Add the higher-timeframe picture with it.</li>
-        <li><b>Trade only a LONG or SHORT verdict.</b> WAIT means wait. The page tells you what has to happen first.</li>
-        <li><b>Place entry and stop exactly as given</b>, moved to the real candle high or low on your chart. Size the position from your dollar risk.</li>
-        <li><b>Manage it.</b> Take part off at 1.5R and move the stop to break-even. Let the rest run to the ★ target.</li>
-        <li><b>Log the result</b> in the Journal the same day: win, loss or break-even, and one line on why.</li>
+        <li>Check the news calendar. No trade 30 minutes before red-folder USD news.</li>
+        <li>Screenshot the Daily or H1 chart for the bias.</li>
+        <li>Wait for a killzone.</li>
+        <li>Screenshot M5 or M1 and press Analyze.</li>
+        <li>Trade only a LONG or SHORT. WAIT means wait.</li>
+        <li>Half off at 1.5R, stop to break-even. Log it in the Journal.</li>
       </ol>
     </section>
     <div class="two">
-      <section class="card"><h2>Killzones <small>New York time and your local time</small></h2><div class="scroll"><table class="tbl" id="kzTable"></table></div></section>
-      <section class="card"><h2>When the page says LONG or SHORT</h2>
+      <section class="card"><h2>Killzones <small class="muted">New York · your time</small></h2><div class="scroll"><table class="tbl" id="kzTable"></table></div></section>
+      <section class="card"><h2>A trade needs all of these</h2>
         <ul class="steps" style="list-style: disc">
-          <li>The score is 65 or more out of 100 (B from 65, A from 73, A+ from 82).</li>
-          <li>Liquidity was raided, structure shifted, and there is an entry gap or block.</li>
-          <li>The liquidity target is at least 1.5R away from the entry.</li>
-          <li>A long is entered in discount, a short in premium.</li>
-          <li>The trade agrees with the bias.</li>
-          <li>No high-impact news in the next 30 minutes, not NY lunch, not the 16:00 to 18:00 close.</li>
+          <li>Score 65 or more</li><li>Raid, then shift, then a gap or block</li><li>At least 1.5R of room to the target</li><li>Long in discount, short in premium</li><li>Same side as the bias</li><li>No news within 30 minutes · not lunch</li>
         </ul>
       </section>
     </div>
     <div class="two">
-      <section class="card"><h2>How the 100 points are shared</h2><div class="scroll"><table class="tbl" id="wTable"></table></div></section>
-      <section class="card"><h2>Contracts</h2><div class="scroll"><table class="tbl" id="cTable"></table></div>
-        <p class="muted" style="margin-top:10px">Risk in dollars = stop distance × dollars per point × contracts.</p></section>
+      <section class="card"><h2>Score weights</h2><div class="scroll"><table class="tbl" id="wTable"></table></div></section>
+      <section class="card"><h2>Contracts</h2><div class="scroll"><table class="tbl" id="cTable"></table></div></section>
     </div>
-    <section class="card"><h2>What is inside this site</h2>
-      <ul class="steps" style="list-style: disc">
-        <li><b>The ICT algorithm.</b> Market structure (BOS, MSS, CHoCH), liquidity pools and sweeps, fair value gaps and inverted gaps, order blocks, breakers, opening gaps, premium and discount, OTE, killzones, Power of 3. It runs here in the page on the price data you add.</li>
-        <li><b>The chart reader.</b> Claude looks at your screenshot: candles, price axis, every indicator and drawing.</li>
-        <li><b>The checker.</b> Every number is re-checked, targets are always calculated by the program, and the trade rules above decide LONG, SHORT or WAIT.</li>
-        <li><b>The journal</b> and <b>all of the source code</b>, stored privately with this site. Open the Code tab to read or copy any file.</li>
-      </ul>
-    </section>
-    <section class="card"><h2>ICT words in plain language</h2>
+    <section class="card"><h2>Words</h2>
       <dl class="gloss">
-        <dt>Liquidity</dt><dd>Stop orders resting above old highs (buy-side) and below old lows (sell-side). Price is drawn to them.</dd>
-        <dt>Sweep / raid</dt><dd>Price pokes through an old high or low to take those stops, then closes back inside.</dd>
-        <dt>MSS</dt><dd>Market structure shift. After a raid, a candle closes through the last swing the other way, with force.</dd>
-        <dt>Displacement</dt><dd>A strong, fast move that leaves a gap behind it.</dd>
-        <dt>FVG</dt><dd>Fair value gap. Three candles where the first and third do not overlap. Price often returns to it.</dd>
-        <dt>Order block</dt><dd>The last opposite-colour candle before the move that broke structure.</dd>
-        <dt>Breaker</dt><dd>An order block that failed and now works the other way.</dd>
-        <dt>Premium / discount</dt><dd>Upper half and lower half of the current range. Buy in discount, sell in premium.</dd>
-        <dt>OTE</dt><dd>Optimal trade entry. A pullback of 62% to 79% of the move.</dd>
-        <dt>Killzone</dt><dd>The hours when the big moves usually start.</dd>
-        <dt>R</dt><dd>Your risk on the trade. 2R means the profit is twice what you risked.</dd>
+        <dt>Liquidity</dt><dd>Stops resting above old highs and below old lows.</dd>
+        <dt>Sweep</dt><dd>Price takes those stops, then closes back inside.</dd>
+        <dt>MSS</dt><dd>Structure shift: a strong close through the last swing the other way.</dd>
+        <dt>FVG</dt><dd>Gap left by a fast move. Price often returns to it.</dd>
+        <dt>Order block</dt><dd>Last opposite candle before the move.</dd>
+        <dt>Premium / discount</dt><dd>Upper and lower half of the range.</dd>
+        <dt>OTE</dt><dd>A pullback of 62% to 79%.</dd>
+        <dt>R</dt><dd>Your risk. 2R is twice what you risked.</dd>
       </dl>
     </section>
   </main>
 
-  <!-- ============================== CODE ============================== -->
+  <!-- CODE -->
   <main class="view" id="v-code" hidden>
-    <section class="card"><h2>All of the code <small id="codeCount"></small></h2>
-      <p class="muted" style="margin-bottom:12px">The complete system, stored privately with this site. The algorithm is in <b class="num">lib/ict.js</b> (detectors) and <b class="num">lib/analyze.js</b> (bias, liquidity, entry model, score, trade plan). <b class="num">lib/vision.js</b> reads your screenshot and checks it. To run everything on your own computer: save the files, then <b class="num">node server.js</b>.</p>
+    <section class="card"><h2>All of the code <small id="codeCount" class="muted"></small></h2>
+      <p class="muted" style="margin-bottom:12px">The algorithm is in <b class="num">lib/ict.js</b> and <b class="num">lib/analyze.js</b>. The screenshot reader is <b class="num">lib/vision.js</b>. Run it all on your computer with <b class="num">node server.js</b>.</p>
       <div class="codeWrap">
         <div class="files" id="codeFiles" role="listbox" aria-label="Source files"></div>
         <div><div class="codeHead"><b id="codeName">Loading…</b><span><button class="btn ghost small" id="codeCopy" type="button">Copy file</button> <button class="btn ghost small" id="codeSave" type="button" hidden>Save all code</button></span></div>
-          <pre class="code" id="codeBody" tabindex="0"></pre><p class="status muted" id="codeMsg" role="status"></p></div>
+          <pre class="code" id="codeBody" tabindex="0"></pre><p class="status" id="codeMsg" role="status"></p></div>
       </div>
     </section>
   </main>
 
-  <p class="foot"><b>An analysis aid, not financial advice.</b> Prices read from a picture can be a few ticks off. The score is not a win rate and nothing here has been back-tested. Futures are leveraged: check every level on your own chart before you place an order.</p>
+  <p class="foot">Analysis aid, not financial advice. Prices read from a picture can be a few ticks off: check every level on your own chart.</p>
 </div>
 
 <script src="engine.js"></script>
 <script src="chart.js"></script>
+<script src="overlay.js"></script>
+<script src="calibrate.js"></script>
+<script src="example.js"></script>
 <script>
 (function () {
   'use strict';
@@ -353,23 +364,20 @@ dl.gloss dt { font-weight: 700; } dl.gloss dd { margin: 0; color: var(--muted); 
   if (!window.ICT) { $('status').className = 'status err'; $('status').textContent = 'The analysis code did not load. Reload the page.'; return; }
   const { vision, analyze: A, time: T, instruments: INS } = window.ICT;
   const MARKETS = [['MNQ', 'Micro Nasdaq'], ['MGC', 'Micro Gold'], ['NQ', 'Nasdaq'], ['GC', 'Gold']];
-  const state = { market: store.get('desk.market', 'MNQ'), shots: [], csv: null, busy: false, ctl: null, sample: null, db: null, entries: [], mode: 'loading', open: null, confirmDel: null };
+  const state = { market: store.get('desk.market', 'MNQ'), shots: [], csv: null, busy: false, ctl: null, sample: undefined, db: null, entries: [], mode: 'loading', open: null, confirmDel: null };
   const money = (x) => `$${Number(x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const priceFmt = (dec) => (p) => Number(p).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
-  /* ------------------------------ clock ------------------------------ */
+  /* ------------------------------ bar ------------------------------ */
   function drawClock() {
     const s = T.sessionInfo(Math.floor(Date.now() / 1000));
-    const kz = s.killzone;
-    const live = kz && kz.quality > 0.45;
-    let h = `<span class="pill num">New York ${esc(s.nyTime)}</span>`;
-    h += `<span class="pill ${live ? 'on' : 'off'}"><i class="dot"></i>${esc(kz ? kz.name : 'Outside the killzones')}${s.silverBullet ? ' · Silver Bullet' : ''}</span>`;
-    if (s.next && !live) h += `<span class="pill">Next: ${esc(s.next.name)} in ${Math.floor(s.next.inMinutes / 60)}h ${s.next.inMinutes % 60}m</span>`;
+    const kz = s.killzone; const live = kz && kz.quality > 0.45;
+    let h = `<span class="pill num">NY ${esc(s.nyTime)}</span><span class="pill ${live ? 'on' : ''}"><i class="dot"></i>${esc(kz ? kz.name.replace(' killzone', '') : 'No killzone')}${s.silverBullet ? ' · Silver Bullet' : ''}</span>`;
+    if (s.next && !live) h += `<span class="pill">${esc(s.next.name.replace(' killzone', ''))} in ${Math.floor(s.next.inMinutes / 60)}h ${s.next.inMinutes % 60}m</span>`;
     $('clock').innerHTML = h;
   }
   drawClock(); setInterval(drawClock, 30000);
-
-  /* ------------------------------ tabs ------------------------------- */
   const VIEWS = ['analyze', 'journal', 'playbook', 'code'];
   function route() {
     const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'analyze';
@@ -378,20 +386,21 @@ dl.gloss dt { font-weight: 700; } dl.gloss dd { margin: 0; color: var(--muted); 
   }
   window.addEventListener('hashchange', route); route();
 
-  /* ------------------------------ form ------------------------------- */
-  function drawMarkets() {
-    $('markets').innerHTML = MARKETS.map(([k, n]) => `<button type="button" data-k="${k}" class="${k === state.market ? 'on' : ''}" title="${esc(n)}" aria-pressed="${k === state.market}">${k}</button>`).join('');
-  }
+  /* ----------------------------- composer ----------------------------- */
+  function drawMarkets() { $('markets').innerHTML = MARKETS.map(([k, n]) => `<button type="button" data-k="${k}" class="${k === state.market ? 'on' : ''}" title="${esc(n)}" aria-pressed="${k === state.market}">${k}</button>`).join(''); }
   $('markets').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; state.market = b.dataset.k; store.set('desk.market', state.market); drawMarkets(); };
   drawMarkets();
+  $('optBtn').onclick = () => { const open = $('opts').hidden; $('opts').hidden = !open; $('optBtn').setAttribute('aria-expanded', String(open)); };
 
+  function say(kind, text, spin) { const el = $('status'); el.className = `status ${kind || ''}`; el.innerHTML = (spin ? '<span class="spin"></span>' : '') + esc(text); }
   function drawThumbs() {
     $('thumbs').innerHTML = state.shots.map((s, i) => `<div class="thumb"><img src="${s.url}" alt="Screenshot ${i + 1}"><button type="button" data-i="${i}" aria-label="Remove screenshot ${i + 1}">×</button></div>`).join('');
+    $('drop').classList.toggle('has', state.shots.length > 0);
   }
   function addFiles(files) {
     for (const f of files) {
       if (!/^image\/(png|jpeg|webp)$/.test(f.type)) { say('err', 'Use a PNG, JPEG or WebP picture.'); continue; }
-      if (state.shots.length >= 3) { say('err', 'Three pictures is the maximum. Remove one to add another.'); break; }
+      if (state.shots.length >= 3) { say('err', 'Three pictures is the maximum.'); break; }
       state.shots.push({ blob: f, url: URL.createObjectURL(f) });
     }
     drawThumbs();
@@ -407,252 +416,302 @@ dl.gloss dt { font-weight: 700; } dl.gloss dd { margin: 0; color: var(--muted); 
     const files = [...(e.clipboardData ? e.clipboardData.files : [])].filter((f) => f.type.startsWith('image/'));
     if (files.length) { e.preventDefault(); location.hash = 'analyze'; addFiles(files); }
   });
-
-  function drawCsv() {
-    $('csvName').textContent = state.csv ? `${state.csv.name} (${state.csv.rows.toLocaleString('en-US')} rows)` : 'None added. In TradingView: 1 or 5 minute chart → menu → Export chart data…';
-    $('csvClear').hidden = !state.csv;
-  }
+  function drawCsv() { $('csvName').textContent = state.csv ? `${state.csv.name} · ${state.csv.rows.toLocaleString('en-US')} rows` : 'none'; $('csvClear').hidden = !state.csv; }
   $('csvBtn').onclick = () => $('csv').click();
   $('csvClear').onclick = () => { state.csv = null; drawCsv(); };
   $('csv').onchange = async (e) => {
     const f = e.target.files[0]; e.target.value = '';
     if (!f) return;
-    if (f.size > 30e6) return say('err', 'That file is too large. Export fewer candles (under 30 MB).');
+    if (f.size > 30e6) return say('err', 'That file is too large (30 MB max).');
     const text = await f.text();
     state.csv = { name: f.name, text, rows: Math.max(0, text.split(/\r?\n/).filter(Boolean).length - 1) };
     drawCsv();
   };
 
-  function say(kind, text, spin) { const el = $('status'); el.className = `status ${kind || 'muted'}`; el.innerHTML = (spin ? '<span class="spin"></span>' : '') + esc(text); }
-
-  /* --------------------------- pictures ----------------------------- */
-  const loadImage = (blob) => new Promise((resolve, reject) => { const url = URL.createObjectURL(blob); const img = new Image(); img.onload = () => { URL.revokeObjectURL(url); resolve(img); }; img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('One of the pictures could not be opened.')); }; img.src = url; });
+  /* ----------------------------- pictures ----------------------------- */
+  const loadImage = (src) => new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = () => reject(new Error('One of the pictures could not be opened.')); img.src = src; });
   const toBlob = (canvas, type, q) => new Promise((resolve) => canvas.toBlob(resolve, type, q));
-  /** The right half of the chart, enlarged: the price axis and the newest candles stay sharp. */
   async function zoomRight(blob) {
-    const img = await loadImage(blob);
-    const sx = Math.round(img.width * 0.5);
-    const c = document.createElement('canvas'); c.width = img.width - sx; c.height = img.height;
-    c.getContext('2d').drawImage(img, sx, 0, c.width, c.height, 0, 0, c.width, c.height);
-    return toBlob(c, 'image/png');
-  }
-  /** Small copy of the first screenshot for the journal (kept under the size a saved entry may have). */
-  async function makeThumb(blob) {
+    const url = URL.createObjectURL(blob);
     try {
-      const img = await loadImage(blob);
-      for (const [w, q] of [[900, 0.7], [720, 0.6], [560, 0.5], [420, 0.45]]) {
+      const img = await loadImage(url); const sx = Math.round(img.width * 0.5);
+      const c = document.createElement('canvas'); c.width = img.width - sx; c.height = img.height;
+      c.getContext('2d').drawImage(img, sx, 0, c.width, c.height, 0, 0, c.width, c.height);
+      return toBlob(c, 'image/png');
+    } finally { URL.revokeObjectURL(url); }
+  }
+  async function makeThumb(blob) {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await loadImage(url);
+      for (const [w, q] of [[1000, 0.72], [800, 0.64], [620, 0.55], [460, 0.5]]) {
         const k = Math.min(1, w / img.width);
         const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
         c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        const url = c.toDataURL('image/jpeg', q);
-        if (url.length < 150000) return url;
+        const out = c.toDataURL('image/jpeg', q);
+        if (out.length < 150000) return out;
       }
-    } catch { /* no thumbnail */ }
+    } catch { /* no thumbnail */ } finally { URL.revokeObjectURL(url); }
     return '';
   }
 
-  /* ---------------------------- analyze ----------------------------- */
+  /* ------------------------------ analyze ------------------------------ */
   function readNews() {
     const cal = $('cal').value; const tone = Number($('tone').value);
-    const label = $('tone').selectedOptions[0].textContent;
     const ev = (minutes, when) => ({ title: 'A high-impact release', impact: 'High', minutes, when });
     return {
       manual: true, calendarOk: cal !== 'unknown', headlinesOk: false, events: [], headlines: [],
       nextEvent: cal === 'soon' ? ev(15, 'you said within 30 minutes') : cal === 'hour' ? ev(45, 'you said in 30 to 60 minutes') : null,
-      sentiment: { score: tone, label, method: 'your own read of the news', summary: '' },
+      sentiment: { score: tone, label: $('tone').selectedOptions[0].textContent, method: 'your own read of the news', summary: '' },
     };
   }
   const COPY = {
     cancelled: 'Stopped.',
-    not_granted: 'Claude is not allowed on this page yet. Reload, press Analyze and choose Allow when asked.',
+    not_granted: 'Claude is not allowed on this page yet. Reload, press Analyze and choose Allow.',
     sampling_disabled: 'Claude is not available for this account here.',
     images_unavailable: 'This view cannot send pictures to Claude. Open the page on claude.ai or in the Claude app.',
-    rate_limited: 'You reached a usage limit. Wait a little, then press Analyze again.',
-    session_expired: 'Sign in to Claude again, then press Analyze.',
-    image_rejected: 'Claude could not open one of the pictures. Use a PNG or JPEG under 20 MB.',
+    rate_limited: 'Usage limit reached. Wait a little, then try again.',
+    session_expired: 'Sign in to Claude again, then try again.',
+    image_rejected: 'Claude could not open a picture. Use a PNG or JPEG under 20 MB.',
     refused: 'Claude declined this picture. Use a plain chart screenshot.',
-    invalid_json: 'Claude’s answer was cut short. Press Analyze again.',
+    invalid_json: 'The answer was cut short. Press Analyze again.',
     empty_completion: 'Claude gave no answer. Press Analyze again.',
-    prompt_too_large: 'The note is too long. Shorten it and try again.',
+    prompt_too_large: 'The note is too long.',
   };
-  function show(root, r, opt) { root.innerHTML = resultHtml(r, opt); wireSize(root, r); wireChart(root, r); }
   async function run() {
     if (state.busy) return;
     const hasShots = state.shots.length > 0; const hasCsv = Boolean(state.csv);
-    if (!hasShots && !hasCsv) return say('err', 'Add a screenshot of your chart, or price data, first.');
+    if (!hasShots && !hasCsv) return say('err', 'Add a screenshot of your chart first.');
     if (hasShots && !state.sample) return say('err', state.sample === null ? 'Reading a screenshot needs Claude. Open this page on claude.ai or in the Claude app.' : 'Still connecting to Claude. Try again in a few seconds.');
     const inst = INS.INSTRUMENTS[state.market];
-    state.busy = true; $('run').disabled = true;
+    state.busy = true; $('run').disabled = true; $('run').textContent = 'Reading…';
     try {
-      const now = Math.floor(Date.now() / 1000);
-      const news = readNews();
+      const now = Math.floor(Date.now() / 1000); const news = readNews();
       let tf = null; let engineResult = null; let dataNote = '';
       if (hasCsv) {
-        say('', 'Calculating the ICT levels from your price data…', true);
-        await new Promise((r) => setTimeout(r, 40)); // let the message show before the maths starts
+        say('', 'Calculating from your price data…', true);
+        await new Promise((r) => setTimeout(r, 40));
         const d = window.ICT.data.loadCsv(state.csv.text);
         tf = d.tf; dataNote = d.note;
         engineResult = A.analyze({ inst, tf, smt: null, news, source: 'csv' });
       }
-      let result; let thumb = '';
-      if (!hasShots) {
-        result = engineResult; result.meta.note = `Calculated from the price data you added. ${dataNote}`;
-      } else {
+      let result; let thumb = ''; let imgUrl = '';
+      if (!hasShots) { result = engineResult; result.meta.note = `Calculated from the price data you added. ${dataNote}`; }
+      else {
         $('stop').hidden = false;
-        say('', 'Claude is reading your chart. This usually takes 30 to 90 seconds.', true);
+        say('', 'Claude is reading your chart. Up to a minute.', true);
         state.ctl = new AbortController();
         const caps = await state.sample.limits().catch(() => null);
         if (!caps || !caps.images) throw { code: 'images_unavailable' };
         const max = caps.images.maxCount || 1;
-        const blobs = []; const lines = [];
-        const shots = state.shots.slice(0, max);
-        const room = max - shots.length; // spare slots are used for enlarged copies
+        const blobs = []; const lines = []; const shots = state.shots.slice(0, max); const room = max - shots.length;
         for (let i = 0; i < shots.length; i++) {
           blobs.push(shots[i].blob); lines.push(`Picture ${blobs.length}: chart screenshot ${i + 1}.`);
           if (i < room) { blobs.push(await zoomRight(shots[i].blob)); lines.push(`Picture ${blobs.length}: the right half of screenshot ${i + 1} enlarged, so you can read the price axis and the newest candles exactly.`); }
         }
-        const prompt = `${vision.SYSTEM}\n\n${vision.buildPrompt({ inst, session: T.sessionInfo(now), notes: $('note').value.trim(), count: shots.length, context: engineResult ? vision.engineContext(engineResult, priceFmt(inst.decimals)) : null, ownData: true, news, guide: `PICTURES SENT: ${lines.join(' ')}` })}`;
+        const prompt = `${vision.SYSTEM}\n\n${vision.buildPrompt({ inst, session: T.sessionInfo(now), notes: $('note').value.trim(), count: shots.length, context: engineResult ? vision.engineContext(engineResult, priceFmt(inst.decimals)) : null, ownData: true, news, guide: `PICTURES SENT: ${lines.join(' ')} Picture 1 is the first full screenshot: put the axis and marks on it.` })}`;
         const raw = await state.sample.json(prompt, { images: blobs, modelTier: 'complex', signal: state.ctl.signal, cache: false });
         result = await vision.combine({ raw, inst, now, news, engineResult, rerun: tf ? async (extra) => A.analyze({ inst, tf, smt: null, news, source: 'csv', ...extra }) : null, modelName: 'Claude', count: shots.length });
-        thumb = await makeThumb(shots[0].blob);
+        // find where the price labels sit on the picture, so the marks land on the right prices
+        if (result.annot) {
+          say('', 'Placing the marks on your chart…', true);
+          try {
+            const img = await loadImage(shots[0].url);
+            const cal = window.calibrateAxis(img, result.annot.labels, { plotRight: result.annot.plotRight, lastPrice: result.meta.price, tagPrices: result.annot.tags });
+            Object.assign(result.annot, { ok: cal.ok, slope: cal.slope, intercept: cal.intercept, plotRight: cal.plotRight, note: cal.note || '' });
+          } catch { result.annot.ok = false; result.annot.note = 'The picture could not be scanned for the price axis.'; }
+        }
+        thumb = await makeThumb(shots[0].blob); imgUrl = shots[0].url;
       }
-      show($('result'), result, { thumb });
+      show($('result'), result, { imgUrl, thumb });
       const saved = await saveEntry(result, thumb);
-      say('ok', saved ? 'Done. Saved to your journal.' : 'Done. This analysis could not be saved to the journal.');
+      say('ok', saved ? 'Done. Saved to your journal.' : 'Done. Could not save to the journal.');
+      $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
       const code = e && e.code;
       say(code === 'cancelled' ? '' : 'err', e instanceof Error ? e.message : COPY[code] || 'Connection problem. Press Analyze again.');
-    } finally {
-      state.busy = false; $('run').disabled = false; $('stop').hidden = true; state.ctl = null;
-    }
+    } finally { state.busy = false; $('run').disabled = false; $('run').textContent = 'Analyze'; $('stop').hidden = true; state.ctl = null; }
   }
   $('run').onclick = run;
   $('stop').onclick = () => { if (state.ctl) state.ctl.abort(); };
 
-  /* ----------------------------- result ----------------------------- */
-  const engineTags = (p) => { const s = p.setup || {}; return [p.model, s.ote ? 'Inside OTE' : s.retr !== undefined ? `${Math.round(s.retr * 100)}% retracement` : '', s.mssDisp ? 'Displacement' : 'Weak displacement', s.stopKind === 'raid' ? 'Stop beyond raid' : 'Tight stop', s.silverBullet ? 'Silver Bullet window' : ''].filter(Boolean); };
-  /** What Claude read from the picture. */
-  function readCard(rd, m, fused) {
-    const f = priceFmt(m.decimals);
-    const tfs = m.chartTimeframes || (Array.isArray(m.timeframes) && !fused ? m.timeframes : []);
-    let a = `<p class="para"><b>${esc(m.chartInstrument || 'Chart')}</b>${tfs.length ? ` · ${esc(tfs.join(' + '))}` : ''}${m.period ? ` · ${esc(m.period)}` : ''} · price ${f(m.price)}</p>`;
-    a += rd.indicators.length ? `<div class="ind">${rd.indicators.map((i) => `<span class="chip ${i.dir === 1 ? 'b' : i.dir === -1 ? 's' : 'n'}">${i.dir === 1 ? 'bullish' : i.dir === -1 ? 'bearish' : 'neutral'}</span><span><b>${esc(i.name)}</b> — ${esc(i.reading)}</span>`).join('')}</div>` : '<p class="para muted">No indicators were found on the picture.</p>';
-    if (rd.candles) a += `<p class="para"><b>Candles.</b> ${esc(rd.candles)}</p>`;
-    if (rd.summary) a += `<p class="para"><b>Summary.</b> ${esc(rd.summary)}</p>`;
-    if (rd.problems) a += `<p class="para muted">Reading problems: ${esc(rd.problems)}</p>`;
-    if (fused) {
-      const v = fused.vision;
-      a += `<div class="why">Picture alone: Claude leans <b>${esc(v.bias.label)}</b>${v.agree === true ? ', the same side as your price data.' : v.agree === false ? `, but your price data across all timeframes is ${esc(fused.bias.label)}. The data decides; treat the disagreement as a caution.` : '.'} Entry, stop and targets come from the exact price data.</div>`;
-    }
-    return `<section class="card"><h2>What Claude read on your chart ${m.confidence ? `<small>confidence ${esc(m.confidence)}</small>` : ''}</h2>${a}</section>`;
+  /* ------------------------------ result ------------------------------ */
+  const SHORT = { htf: 'Bias', room: 'Room', pd: 'Price zone', sweep: 'Sweep', mss: 'Shift', array: 'Entry zone', ote: 'OTE', time: 'Time', smt: 'SMT', ind: 'Indicators', open: 'Open', h1: 'H1 flow', newsSentiment: 'News', newsCalendar: 'Calendar' };
+  const REASONS = [
+    [/against .*bias|goes against/i, 'Against the bias. Skip it.'], [/news|release|print/i, 'News is close. Wait.'], [/lunch/i, 'NY lunch. Wait for the PM session.'],
+    [/closing|16:00/i, 'The day is closing. No new trades.'], [/below the .*minimum/i, 'Score too low. Wait.'], [/raid and a structure shift|No raid/i, 'No raid and shift yet.'],
+    [/liquidity target|room for|draw on liquidity/i, 'Not enough room to the target.'], [/wrong half|in premium|in discount/i, 'Entry is in the wrong half of the range.'],
+    [/not confident/i, 'The AI was unsure. Use a clearer picture.'], [/already|chas/i, 'Price already moved. Do not chase.'], [/through the stop|beyond the stop/i, 'Price broke the stop. Idea is dead.'],
+    [/market is closed|not current/i, 'Market is closed.'], [/not on the visible|wrong side|too close/i, 'The AI’s levels did not check out.'],
+  ];
+  function headline(r) {
+    const p = r.plan; const f = priceFmt(r.meta.decimals);
+    if (p.action !== 'WAIT') return p.state === 'in_zone' ? 'Price is at the entry now.' : `Rest a ${p.dir === 1 ? 'buy' : 'sell'} limit. Wait for the pullback.`;
+    const s = p.setup;
+    if (s && s.mssLevel !== undefined && (!p.reason || /not shifted/i.test(p.reason))) return `Raid done. Wait for a close ${s.dir === 1 ? 'above' : 'below'} ${f(s.mssLevel)}.`;
+    for (const [re, txt] of REASONS) if (re.test(p.reason || '')) return txt;
+    return (p.reason || 'No setup yet.').slice(0, 64);
   }
-  /** Bias, range, key levels and liquidity calculated from the price data. */
-  function contextCard(r) {
-    const f = priceFmt(r.meta.decimals); const b = r.bias; const L = r.levels || {}; const liq = r.liquidity || { above: [], below: [] };
-    const cell = (k, v, s, cls) => `<div><div class="k">${k}</div>${v ? `<div class="v ${cls || ''}">${v}</div>` : ''}<div class="s">${s}</div></div>`;
-    const list = (arr) => arr.slice(0, 4).map((p) => `${p.strength >= 3 ? '★ ' : ''}${esc(p.label)} <b class="num">${f(p.price)}</b>`).join('<br>') || 'none mapped';
-    const arrow = (t) => (t > 0 ? '▲' : t < 0 ? '▼' : '–');
-    let h = cell('Higher-timeframe bias', esc(b.label), `Score ${b.sum > 0 ? '+' : ''}${b.sum} of ±${b.max}${r.chart ? ` · ${['D', 'H4', 'H1', 'M15', 'M5'].filter((t) => r.chart[t]).map((t) => `${t} ${arrow(r.chart[t].trend)}`).join(' ')}` : ''}`, b.dir === 1 ? 'up' : b.dir === -1 ? 'dn' : '');
-    h += cell('Session at the last candle', esc(r.session.nyTime), esc(r.session.killzone ? r.session.killzone.name : 'Outside the killzones'));
-    if (r.range) h += cell('Premium / discount', `${Math.round(r.range.pos * 100)}% — ${r.range.pos > 0.5 ? 'premium' : 'discount'}`, `${f(r.range.lo)} · EQ ${f(r.range.eq)} · ${f(r.range.hi)}`, r.range.pos > 0.5 ? 'dn' : 'up');
-    if (L.pdh !== null && L.pdh !== undefined) h += cell('Previous day / week', '', `PDH <b class="num">${f(L.pdh)}</b> · PDL <b class="num">${f(L.pdl)}</b>${L.pwh !== null ? `<br>PWH <b class="num">${f(L.pwh)}</b> · PWL <b class="num">${f(L.pwl)}</b>` : ''}`);
-    h += cell('Buy-side liquidity above', '', list(liq.above)) + cell('Sell-side liquidity below', '', list(liq.below));
-    const o = L.opens || {};
-    const opens = [['Midnight', o.midnight], ['08:30', o.o830], ['Daily 18:00', o.daily], ['Weekly', o.weekly]].filter((x) => x[1]).map(([n, v]) => `${n} <b class="num">${f(v.price)}</b>`).join(' · ');
-    if (opens) h += cell('Opening prices', '', opens);
-    return `<section class="card"><h2>Context from your price data</h2><div class="ctx">${h}</div></section>`;
+  function ringHtml(r) {
+    const p = r.plan; const pct = clamp(p.score / 100, 0, 1); const C = 2 * Math.PI * 27;
+    return `<svg class="ring" viewBox="0 0 78 78" role="img" aria-label="Score ${p.score} of 100"><circle class="trk" cx="39" cy="39" r="27"/><circle class="val" cx="39" cy="39" r="27" stroke-dasharray="${(pct * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 39 39)"/><text x="39" y="42">${Math.round(p.score)}</text><text class="cap" x="39" y="55">of 100</text></svg>`;
   }
-  function resultHtml(r, opt = {}) {
-    const mode = r.mode || 'data';
-    const p = r.plan; const m = r.meta; const f = priceFmt(m.decimals);
-    const has = p.entry !== undefined; const act = p.action;
-    let v = opt.example ? '<span class="flag">Example — not your chart</span>' : '';
-    v += `<div class="vhead"><span class="badge ${act}">${act}</span><div class="vsub"><b>${act === 'WAIT' ? 'No trade — wait' : `${act === 'LONG' ? 'Buy' : 'Sell'} ${esc(m.symbol)}`}</b><br>Grade ${esc(p.grade)} · bias ${esc(r.bias.label)} · ${esc(m.asOfText)} New York</div></div>`;
-    v += `<div class="meter"><i class="a" style="width:${p.ictPts}%"></i><i class="b" style="width:${p.newsPts}%"></i></div>`;
-    v += `<div class="meterLbl"><span>Score <b>${p.score}</b> / 100 — a trade needs ${m.minScore}</span><span>chart ${p.ictPts} / 87.5 · news ${p.newsPts} / 12.5</span></div>`;
-    if (p.reason) v += `<div class="why">${esc(p.reason)}</div>`;
+  function verdictHtml(r, opt) {
+    const p = r.plan; const m = r.meta; const f = priceFmt(m.decimals); const act = p.action; const has = p.entry !== undefined;
+    const cls = act === 'LONG' ? 'bull' : act === 'SHORT' ? 'bear' : 'warn';
+    const bd = r.bias.dir; const pos = r.bias.max ? clamp(r.bias.sum / r.bias.max, -1, 1) : bd * 0.6;
+    let h = `<div class="vTop"><div><div class="act">${act}</div><div class="sub"><span class="tag ${bd === 1 ? 'b' : bd === -1 ? 's' : ''}">${bd === 1 ? '▲ Bullish' : bd === -1 ? '▼ Bearish' : '– Neutral'}</span><span class="tag">${esc(m.symbol)}</span><span class="tag">Grade ${esc(p.grade)}</span></div></div>${ringHtml(r)}</div>`;
+    h += `<p class="line1">${esc(headline(r))}</p>`;
+    h += `<div class="bmeter"><span class="dn">▼ Bearish</span><div class="track"><i style="left:${50 + 50 * pos}%"></i></div><span class="up">Bullish ▲</span></div>`;
     if (has) {
-      const tags = p.tags && p.tags.length ? p.tags : engineTags(p);
-      v += `<table class="lv"><tr><td>${act === 'WAIT' ? 'Reference entry' : esc(p.orderType)}</td><td>${f(p.entry)}</td><td>${esc(p.entryType)}${mode === 'image' ? '' : ` · ${esc(p.tf)}`}</td></tr>`;
-      v += `<tr class="stop"><td>Stop loss</td><td>${f(p.stop)}</td><td>−${f(p.risk)} · ${money(p.riskUsd)}</td></tr>`;
-      for (const t of p.targets) v += `<tr class="tp ${t.rr === p.preferred ? 'pref' : ''}"><td>Target ${t.rr}R</td><td>${f(t.price)}</td><td>+${money(p.riskUsd * t.rr)}</td></tr>`;
-      v += `</table><div class="tags">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>`;
-      v += `<div class="size"><label for="riskIn${opt.key || ''}">I want to risk ($)</label><input id="riskIn${opt.key || ''}" data-risk type="number" min="1" step="10" inputmode="decimal"><span>Contracts (${esc(m.symbol)})</span><b data-n></b><span class="muted">Actual risk · profit at ${p.preferred}R ★</span><span class="num" data-rp></span></div>`;
+      const how = `${p.dir === 1 ? 'Buy' : 'Sell'} ${p.state === 'pending' ? 'limit' : 'now'}`;
+      h += `<table class="lv ${act === 'WAIT' ? 'ref' : ''}"><tr class="ent"><td>${act === 'WAIT' ? 'Entry (ref)' : 'Entry'}</td><td>${f(p.entry)}</td><td>${how} · ${esc(p.entryType)}</td></tr>`;
+      h += `<tr class="stop"><td>Stop</td><td>${f(p.stop)}</td><td>−${money(p.riskUsd)}</td></tr>`;
+      for (const t of p.targets) h += `<tr class="tp ${t.rr === p.preferred ? 'pref' : ''}"><td>${t.rr}R</td><td>${f(t.price)}</td><td>+${money(p.riskUsd * t.rr)}</td></tr>`;
+      h += `</table><div class="size"><label for="riskIn${opt.key || ''}">Risk $</label><input id="riskIn${opt.key || ''}" data-risk type="number" min="1" step="10" inputmode="decimal"><span>→</span><b data-n></b><span>contracts</span><span class="num" data-rp></span></div>`;
     } else if (p.setup && p.setup.mssLevel !== undefined) {
       const s = p.setup; const up = s.dir === 1;
-      v += `<table class="lv"><tr><td>Building</td><td class="${up ? 'up' : 'dn'}">${up ? 'LONG' : 'SHORT'}</td><td>${esc(s.tf)}</td></tr>`;
-      v += `<tr><td>Becomes a trade on a close ${up ? 'above' : 'below'}</td><td>${f(s.mssLevel)}</td><td>structure shift</td></tr>`;
-      v += `<tr class="stop"><td>Idea is dead ${up ? 'below' : 'above'}</td><td>${f(s.extreme)}</td><td>raid ${up ? 'low' : 'high'}</td></tr></table>`;
+      h += `<table class="lv"><tr><td>Building</td><td class="${up ? 'up' : 'dn'}">${up ? 'LONG' : 'SHORT'}</td><td>${esc(s.tf)}</td></tr><tr><td>Needs a close ${up ? 'above' : 'below'}</td><td>${f(s.mssLevel)}</td><td></td></tr><tr class="stop"><td>Dead ${up ? 'below' : 'above'}</td><td>${f(s.extreme)}</td><td></td></tr></table>`;
     }
-    for (const w of p.wait || []) v += `<div class="why"><b>What to wait for.</b> ${esc(w.text.replace(/^(Long|Short) scenario: /, (x) => x))}</div>`;
-    if (m.note && !opt.example) v += `<p class="srcNote">${esc(m.note)}</p>`;
-
-    const second = mode === 'image' ? readCard(r.read, m, null) : mode === 'fusion' ? readCard(r.vision.read, m, r) : contextCard(r);
-    const chartCard = r.chart ? `<section class="card"><h2>Chart with the ICT levels <small>drawn from your price data · scroll to zoom, drag to move</small></h2><div class="chartBar"><div class="seg" data-tfs role="group" aria-label="Timeframe"></div><div class="layers" data-layers></div></div><div class="chartWrap"><canvas data-chart></canvas><div class="tip" data-tip hidden></div></div></section>` : '';
-    const ck = p.checklist.map((c) => { const k = c.max ? c.pts / c.max : 0; return `<div class="ck"><div class="t">${esc(c.label)}</div><div class="p">${c.pts} / ${c.max}<div class="bar ${k >= 0.66 ? '' : k >= 0.33 ? 'mid' : 'low'}"><i style="width:${Math.round(k * 100)}%"></i></div></div><div class="d">${esc(c.detail)}</div></div>`; }).join('');
-    const narr = r.narrative.map((s) => `<section><h3>${esc(s.title)}</h3><ul>${s.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></section>`).join('');
-    return `<div class="two"><section class="card">${v}</section>${second}</div>`
-      + chartCard
-      + (mode === 'fusion' ? contextCard(r) : '')
-      + (opt.thumb ? `<section class="card shot"><h2>Your screenshot</h2><img src="${opt.thumb}" alt="Chart screenshot that was analysed"></section>` : '')
-      + `<div class="two"><section class="card"><h2>Checklist <small>${p.score} / 100</small></h2>${ck}</section><section class="card"><h2>Full breakdown</h2><div class="narr" style="columns:1">${narr}</div></section></div>`;
+    if (p.reason && p.reason !== headline(r)) h += `<details class="why1"><summary>Why?</summary><p>${esc(p.reason)}</p></details>`;
+    return `<aside class="card verdict ${cls}">${h}</aside>`;
   }
-  /** Candle chart with the levels drawn on it (only when price data was added). */
-  function wireChart(root, r) {
-    const cv = root.querySelector('canvas[data-chart]');
-    if (!cv || !r.chart || !window.IctChart) return;
-    const tfs = ['D', 'H4', 'H1', 'M15', 'M5', 'M1'].filter((t) => r.chart[t]);
-    let tf = tfs.includes(r.plan.tf) ? r.plan.tf : tfs.includes('M5') ? 'M5' : tfs[tfs.length - 1];
-    const chart = new window.IctChart(cv, root.querySelector('[data-tip]'));
-    const g = { pools: r.pools || [], plan: r.plan, opens: (r.levels && r.levels.opens) || {}, decimals: r.meta.decimals };
-    const seg = root.querySelector('[data-tfs]'); const lay = root.querySelector('[data-layers]');
-    const draw = () => { seg.innerHTML = tfs.map((t) => `<button type="button" data-k="${t}" class="${t === tf ? 'on' : ''}" aria-pressed="${t === tf}">${t}</button>`).join(''); chart.setData(r.chart[tf], g); };
-    seg.onclick = (e) => { const b = e.target.closest('button'); if (!b) return; tf = b.dataset.k; draw(); };
-    lay.innerHTML = [['fvg', 'Gaps'], ['ob', 'Order blocks'], ['liq', 'Liquidity'], ['structure', 'Structure'], ['sessions', 'Killzones'], ['plan', 'Trade plan']].map(([k, n]) => `<button type="button" data-k="${k}" class="on" aria-pressed="true">${n}</button>`).join('');
-    lay.onclick = (e) => { const b = e.target.closest('button'); if (!b) return; chart.layers[b.dataset.k] = !chart.layers[b.dataset.k]; b.classList.toggle('on'); b.setAttribute('aria-pressed', String(chart.layers[b.dataset.k])); chart.draw(); };
-    draw();
-  }
-  /** Position-size box: dollars at risk → contracts. */
   function wireSize(root, r) {
-    const inp = root.querySelector('[data-risk]'); if (!inp) return;
-    const p = r.plan;
+    const inp = root.querySelector('[data-risk]'); if (!inp) return; const p = r.plan;
     inp.value = store.get('desk.risk', '100');
     const calc = () => {
       const risk = Math.max(0, Number(inp.value) || 0); store.set('desk.risk', String(risk));
       const n = Math.floor(risk / p.riskUsd);
       root.querySelector('[data-n]').textContent = n;
-      root.querySelector('[data-rp]').textContent = n ? `${money(n * p.riskUsd)} · +${money(n * p.riskUsd * p.preferred)}` : `one contract risks ${money(p.riskUsd)}`;
+      root.querySelector('[data-rp]').textContent = n ? `${money(n * p.riskUsd)} at risk` : `1 contract = ${money(p.riskUsd)}`;
     };
     inp.oninput = calc; calc();
   }
-  function showExample() {
-    const now = Date.parse('2026-11-10T15:15:00Z') / 1000;
-    const news = { manual: true, calendarOk: true, headlinesOk: false, events: [], headlines: [], nextEvent: null, sentiment: { score: 0, label: 'Neutral or mixed', method: 'example', summary: '' } };
-    const raw = {
-      readable: true, problems: '', chart: { instrument: 'MGC1! (example)', timeframes: ['5m'], last_price: 4090, visible_high: 4120, visible_low: 4060, period: '' },
-      swings: [{ type: 'high', price: 4110 }, { type: 'low', price: 4072 }, { type: 'high', price: 4086 }, { type: 'low', price: 4064 }, { type: 'high', price: 4096 }],
-      indicators: [{ name: 'EMA 20', reading: 'price 4090 is above EMA 20 at 4083, and EMA 20 is turning up', implication: 'bullish' }, { name: 'RSI 14', reading: '56, rising from oversold', implication: 'neutral' }],
-      candles: 'A wick below the old low at 4072, then three strong green candles that left a gap.',
-      structure: { trend: 'bullish', events: [{ type: 'MSS', direction: 'bullish', level: 4086, when: '09:40' }] },
-      liquidity: { above: [{ label: 'Equal highs', price: 4110 }, { label: 'Session high', price: 4118 }], below: [{ label: 'Old low', price: 4064 }], swept: [{ label: 'Old low', price: 4072, when: '09:30' }] },
-      pd_arrays: [{ type: 'FVG', direction: 'bullish', low: 4074, high: 4078, note: 'left by the displacement' }], dealing_range: { low: 4064, high: 4110 },
-      bias: { direction: 'bullish', draw: 'equal highs at 4110', why: 'Sell-side was raided, then price displaced up through the last lower high.' },
-      setup: { direction: 'long', state: 'pending', model: 'Raid → shift → gap', timeframe: '5m', raid: { label: 'Old low', price: 4064 }, shift_level: 4086, leg: { from: 4064, to: 4096 }, entry: 4074, entry_array: 'FVG 4074–4078', stop: 4062, stop_reason: 'below the raid low', target_liquidity: { label: 'Equal highs', price: 4110 }, wait_for: '' },
-      scores: { htf: { pts: 12, why: 'The chart is making higher lows after the raid.' }, sweep: { pts: 12, why: 'Old low taken, close back above.' }, mss: { pts: 12, why: 'Close above 4086 with a gap left behind.' }, array: { pts: 8, why: 'Clean, untouched gap.' }, open: { pts: 3.5, why: 'Entry is below the midnight open.' }, h1: { pts: 3, why: 'One timeframe up agrees.' } },
-      summary: 'This is what a finished analysis looks like. Add your own screenshot above to replace it.', confidence: 'high',
+  function stageHtml(r, opt) {
+    const hasShot = Boolean(opt.imgUrl); const hasChart = Boolean(r.chart);
+    const views = hasShot && hasChart ? '<div class="seg" data-views role="group" aria-label="View"><button type="button" data-v="shot" class="on">My chart</button><button type="button" data-v="candles">Candles</button></div>' : '<span></span>';
+    const layers = [['gaps', 'Gaps', 'var(--bull)'], ['blocks', 'Blocks', 'var(--accent)'], ['liq', 'Liquidity', 'var(--warn)'], ['plan', 'Trade', 'var(--fg)']];
+    let h = `<div class="stage"><div class="stageBar">${views}<div class="chips" data-layers>${layers.map(([k, n, c]) => `<button type="button" data-k="${k}" class="on" style="--c:${c}" aria-pressed="true"><i></i>${n}</button>`).join('')}</div></div>`;
+    if (hasShot) h += `<div class="shot" data-shot>${opt.example ? '<span class="flag">Example</span>' : ''}<img data-img src="${opt.imgUrl}" alt="Your chart with the ICT marks"><canvas data-ov></canvas></div>`;
+    if (hasChart) h += `<div class="chartWrap" data-candles ${hasShot ? 'hidden' : ''}><canvas data-chart></canvas><div class="tip" data-tip hidden></div></div>`;
+    h += '<p class="stageNote" data-note></p></div>';
+    return h;
+  }
+  function wireStage(root, r) {
+    const st = root.querySelector('.stage'); if (!st) return;
+    const shot = st.querySelector('[data-shot]'); const img = st.querySelector('[data-img]'); const ov = st.querySelector('[data-ov]');
+    const box = st.querySelector('[data-candles]'); const note = st.querySelector('[data-note]');
+    const layers = { gaps: true, blocks: true, liq: true, plan: true };
+    let view = shot ? 'shot' : 'candles'; let chart = null;
+    function paint() {
+      if (view === 'shot' && ov) {
+        const ok = window.IctOverlay.draw(ov, r, layers);
+        note.className = `stageNote ${ok ? '' : 'warn'}`;
+        note.textContent = ok ? (r.annot.note || '') : (r.annot && r.annot.note ? `Marks could not be placed: ${r.annot.note}` : 'Add price data, or a picture with the price axis in view, to see marks.');
+      } else if (view === 'candles') { note.className = 'stageNote'; note.textContent = 'Candles and levels calculated from your price data.'; }
+    }
+    function candles() {
+      if (chart || !box || !window.IctChart) return;
+      const tfs = ['D', 'H4', 'H1', 'M15', 'M5', 'M1'].filter((t) => r.chart[t]);
+      let tf = tfs.includes(r.plan.tf) ? r.plan.tf : tfs.includes('M5') ? 'M5' : tfs[tfs.length - 1];
+      chart = new window.IctChart(box.querySelector('canvas'), box.querySelector('[data-tip]'));
+      const g = { pools: r.pools || [], plan: r.plan, opens: (r.levels && r.levels.opens) || {}, decimals: r.meta.decimals };
+      const bar = document.createElement('div'); bar.className = 'seg'; bar.style.cssText = 'position:absolute;top:8px;right:8px;z-index:2';
+      const draw = () => { bar.innerHTML = tfs.map((t) => `<button type="button" data-k="${t}" class="${t === tf ? 'on' : ''}">${t}</button>`).join(''); chart.setData(r.chart[tf], g); };
+      bar.onclick = (e) => { const b = e.target.closest('button'); if (b) { tf = b.dataset.k; draw(); } };
+      box.appendChild(bar); draw(); applyChartLayers();
+    }
+    function applyChartLayers() { if (chart) { Object.assign(chart.layers, { fvg: layers.gaps, ob: layers.blocks, liq: layers.liq, plan: layers.plan }); chart.draw(); } }
+    st.querySelector('[data-layers]').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; layers[b.dataset.k] = !layers[b.dataset.k]; b.classList.toggle('on'); b.setAttribute('aria-pressed', String(layers[b.dataset.k])); paint(); applyChartLayers(); };
+    const vs = st.querySelector('[data-views]');
+    if (vs) vs.onclick = (e) => {
+      const b = e.target.closest('button'); if (!b) return; view = b.dataset.v;
+      vs.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+      shot.hidden = view !== 'shot'; box.hidden = view !== 'candles';
+      if (view === 'candles') candles(); paint();
     };
-    try { const r = vision.buildResult(raw, { inst: INS.INSTRUMENTS.MGC, now, news, engine: null, modelName: 'example', count: 1 }); show($('result'), r, { example: true, key: 'Ex' }); } catch { /* the page works without the example */ }
+    if (img) { img.addEventListener('load', paint); if (img.complete) paint(); if (window.ResizeObserver) new ResizeObserver(paint).observe(shot); }
+    if (!shot) candles();
+    paint();
+  }
+  function whyHtml(r) {
+    const p = r.plan;
+    const cells = p.checklist.map((c, i) => { const k = c.max ? c.pts / c.max : 0; const cls = c.key.startsWith('news') ? 'nw' : k >= 0.66 ? '' : k >= 0.33 ? 'mid' : 'low'; return `<button type="button" class="cell ${cls}" data-i="${i}"><span class="t"><span>${esc(SHORT[c.key] || c.label)}</span><span>${c.pts}/${c.max}</span></span><span class="b"><i style="width:${Math.round(k * 100)}%"></i></span></button>`; }).join('');
+    return `<section class="card"><div class="cellHead"><b>Score weights</b><span>Chart ${p.ictPts} of 87.5 · News ${p.newsPts} of 12.5 · tap one for the reason</span></div><div class="cells">${cells}</div><p class="cellTip" data-tip></p></section>`;
+  }
+  function wireWhy(root, r) {
+    const tip = root.querySelector('.cellTip'); if (!tip) return;
+    root.querySelector('.cells').onclick = (e) => {
+      const b = e.target.closest('.cell'); if (!b) return;
+      root.querySelectorAll('.cell').forEach((x) => x.classList.toggle('on', x === b));
+      const c = r.plan.checklist[Number(b.dataset.i)]; tip.textContent = `${c.label}: ${c.detail}`;
+    };
+  }
+  function readCard(r) {
+    const mode = r.mode; const rd = mode === 'fusion' ? r.vision.read : r.read; if (!rd) return '';
+    const f = priceFmt(r.meta.decimals); const m = r.meta; const tfs = mode === 'fusion' ? m.chartTimeframes : m.timeframes;
+    let a = `<p class="para"><b>${esc(m.chartInstrument || 'Chart')}</b>${tfs && tfs.length ? ` · ${esc(tfs.join(' + '))}` : ''} · ${f(m.price)}</p>`;
+    a += rd.indicators.length ? `<div class="ind">${rd.indicators.map((i) => `<span class="chip ${i.dir === 1 ? 'b' : i.dir === -1 ? 's' : 'n'}">${i.dir === 1 ? 'bullish' : i.dir === -1 ? 'bearish' : 'neutral'}</span><span><b>${esc(i.name)}</b> · ${esc(i.reading)}</span>`).join('')}</div>` : '<p class="para muted">No indicators found on the picture.</p>';
+    if (rd.candles) a += `<p class="para">${esc(rd.candles)}</p>`;
+    if (rd.summary) a += `<p class="para"><b>${esc(rd.summary)}</b></p>`;
+    if (mode === 'fusion' && r.vision.agree === false) a += `<p class="para am">The picture leans ${esc(r.vision.bias.label)}; your price data says ${esc(r.bias.label)}. The data decides.</p>`;
+    return `<section class="card"><h2>What Claude read</h2>${a}</section>`;
+  }
+  function contextCard(r) {
+    if (!r.levels) return '';
+    const f = priceFmt(r.meta.decimals); const b = r.bias; const L = r.levels; const liq = r.liquidity || { above: [], below: [] };
+    const cell = (k, v, s, cls) => `<div><div class="k">${k}</div>${v ? `<div class="v ${cls || ''}">${v}</div>` : ''}<div class="s">${s}</div></div>`;
+    const list = (arr) => arr.slice(0, 4).map((p) => `${esc(p.label)} <b class="num">${f(p.price)}</b>`).join('<br>') || 'none';
+    let h = cell('Bias', esc(b.label), `Score ${b.sum > 0 ? '+' : ''}${b.sum} of ±${b.max}`, b.dir === 1 ? 'up' : b.dir === -1 ? 'dn' : '');
+    if (r.range) h += cell('Range', `${Math.round(r.range.pos * 100)}% ${r.range.pos > 0.5 ? 'premium' : 'discount'}`, `${f(r.range.lo)} · ${f(r.range.hi)}`, r.range.pos > 0.5 ? 'dn' : 'up');
+    if (L.pdh !== null && L.pdh !== undefined) h += cell('Prev day', '', `H <b class="num">${f(L.pdh)}</b> · L <b class="num">${f(L.pdl)}</b>`);
+    h += cell('Buy-side above', '', list(liq.above)) + cell('Sell-side below', '', list(liq.below));
+    return `<section class="card"><h2>From your price data</h2><div class="ctx">${h}</div></section>`;
+  }
+  function moreHtml(r, opt) {
+    const narr = r.narrative.map((s) => `<details><summary>${esc(s.title)}</summary><ul>${s.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>`).join('');
+    const cards = readCard(r) + contextCard(r);
+    return `<details class="more"><summary>More detail</summary><div class="moreBody">${cards ? `<div class="two">${cards}</div>` : ''}<div class="acc">${narr}</div>${r.meta.note && !opt.example ? `<p class="srcNote">${esc(r.meta.note)}</p>` : ''}</div></details>`;
+  }
+  function show(root, r, opt) {
+    root.innerHTML = `<div class="cockpit">${stageHtml(r, opt)}${verdictHtml(r, opt)}</div>${whyHtml(r)}${moreHtml(r, opt)}`;
+    wireSize(root, r); wireStage(root, r); wireWhy(root, r);
+  }
+
+  /* ------------------------------ example ------------------------------ */
+  function exampleChart(ex) {
+    const W = 1200; const H = 640; const AX = 84; const top = 26; const plotH = 560; const plotW = W - AX;
+    const c = ex.candles; const lo = Math.min(...c.map((x) => x.l)) - 6; const hi = Math.max(...c.map((x) => x.h)) + 6;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const x = cv.getContext('2d');
+    const Y = (p) => top + (hi - p) / (hi - lo) * plotH; const bw = plotW / (c.length + 6);
+    x.fillStyle = '#131722'; x.fillRect(0, 0, W, H);
+    x.font = '12px Inter, Arial, sans-serif';
+    for (let p = Math.ceil(lo / 10) * 10; p < hi; p += 10) { x.strokeStyle = '#1f2533'; x.beginPath(); x.moveTo(0, Y(p)); x.lineTo(plotW, Y(p)); x.stroke(); x.fillStyle = '#b2b5be'; x.fillText(p.toFixed(1), plotW + 8, Y(p) + 4); }
+    c.forEach((b, i) => { const up = b.c >= b.o; x.strokeStyle = x.fillStyle = up ? '#089981' : '#f23645'; x.beginPath(); x.moveTo((i + 0.5) * bw, Y(b.h)); x.lineTo((i + 0.5) * bw, Y(b.l)); x.stroke(); x.fillRect((i + 0.5) * bw - bw * 0.33, Y(Math.max(b.o, b.c)), bw * 0.66, Math.max(1, Math.abs(Y(b.o) - Y(b.c)))); });
+    const L = c[c.length - 1]; x.fillStyle = L.c >= L.o ? '#089981' : '#f23645'; x.fillRect(plotW, Y(L.c) - 9, AX, 18); x.fillStyle = '#fff'; x.fillText(L.c.toFixed(1), plotW + 8, Y(L.c) + 4);
+    x.fillStyle = '#d1d4dc'; x.font = '13px Inter, Arial, sans-serif'; x.fillText('XAUUSD · 5 · example', 10, 16);
+    const slope = -(plotH / (hi - lo)) / H; const intercept = (top + hi * plotH / (hi - lo)) / H;
+    return { url: cv.toDataURL('image/png'), slope, intercept, plotRight: plotW / W, xi: (i) => ((i + 0.5) * bw) / W };
+  }
+  function showExample() {
+    try {
+      const ex = window.IctExample.makeExample(); const ch = exampleChart(ex); const raw = window.IctExample.exampleRaw(ex);
+      raw.marks[1].x = ch.xi(ex.raidIndex); raw.marks[2].x = ch.xi(ex.gapIndex); raw.marks[3].x = ch.xi(ex.gapIndex + 2);
+      const news = { manual: true, calendarOk: true, headlinesOk: false, events: [], headlines: [], nextEvent: null, sentiment: { score: 0, label: 'Neutral', method: 'example', summary: '' } };
+      const r = vision.buildResult(raw, { inst: INS.INSTRUMENTS.MGC, now: Date.parse('2026-11-10T15:15:00Z') / 1000, news, engine: null, modelName: 'example', count: 1 });
+      r.annot = { ...r.annot, ok: true, slope: ch.slope, intercept: ch.intercept, plotRight: ch.plotRight, note: '' };
+      show($('result'), r, { example: true, key: 'Ex', imgUrl: ch.url });
+    } catch { /* the page works without the example */ }
   }
   showExample();
 
-  /* ----------------------------- journal ---------------------------- */
+  /* ------------------------------ journal ------------------------------ */
   const LOCAL = 'desk.journal';
   const localAll = () => { try { return JSON.parse(store.get(LOCAL, '[]')) || []; } catch { return []; } };
   const localSave = (list) => store.set(LOCAL, JSON.stringify(list));
   const coll = () => state.db.collection('journal');
   async function saveEntry(r, thumb) {
-    const p = r.plan;
-    const slim = { ...r }; delete slim.chart; delete slim.pools; // candles are not kept: an entry has a size limit
+    const p = r.plan; const slim = { ...r }; delete slim.chart; delete slim.pools;
     const rd = r.read || (r.vision && r.vision.read) || {};
     const entry = {
       createdAt: Date.now(), market: r.meta.symbol, action: p.action, grade: p.grade, score: p.score, dir: p.dir || 0, tf: p.tf || '',
@@ -670,45 +729,37 @@ dl.gloss dt { font-weight: 700; } dl.gloss dd { margin: 0; color: var(--muted); 
     try {
       if (state.db) await coll().doc(id).update(patch);
       else { const list = localAll(); const e = list.find((x) => x.id === id); if (e) Object.assign(e, patch); localSave(list); state.entries = list; drawJournal(); }
-    } catch { $('jNote').textContent = 'That change could not be saved. Try again.'; }
+    } catch { $('jNote').textContent = 'That change could not be saved.'; }
   }
   async function removeEntry(id) {
     try {
       if (state.db) await coll().doc(id).delete();
       else { const list = localAll().filter((x) => x.id !== id); localSave(list); state.entries = list; drawJournal(); }
       if (state.open === id) { state.open = null; $('detail').innerHTML = ''; }
-    } catch { $('jNote').textContent = 'That entry could not be deleted. Try again.'; }
+    } catch { $('jNote').textContent = 'That entry could not be deleted.'; }
   }
   const OUT = [['open', 'Open'], ['win', 'Win'], ['loss', 'Loss'], ['be', 'Break-even'], ['skipped', 'Not taken'], ['none', 'No trade']];
   function drawStats() {
-    const es = state.entries;
-    const done = es.filter((e) => ['win', 'loss', 'be'].includes(e.outcome));
-    const wins = done.filter((e) => e.outcome === 'win').length;
+    const es = state.entries; const done = es.filter((e) => ['win', 'loss', 'be'].includes(e.outcome)); const wins = done.filter((e) => e.outcome === 'win').length;
     const totalR = done.reduce((a, e) => a + (Number(e.resultR) || 0), 0);
     const cell = (k, v, cls) => `<div class="stat"><div class="k">${k}</div><div class="v ${cls || ''}">${v}</div></div>`;
-    $('stats').innerHTML = cell('Analyses', es.length) + cell('Trade calls', es.filter((e) => e.action !== 'WAIT').length) + cell('Trades logged', done.length)
-      + cell('Win rate', done.length ? `${Math.round((wins / done.length) * 100)}%` : '–') + cell('Total R', done.length ? `${totalR > 0 ? '+' : ''}${totalR.toFixed(1)}R` : '–', totalR > 0 ? 'up' : totalR < 0 ? 'dn' : '');
+    $('stats').innerHTML = cell('Analyses', es.length) + cell('Trade calls', es.filter((e) => e.action !== 'WAIT').length) + cell('Logged', done.length) + cell('Win rate', done.length ? `${Math.round((wins / done.length) * 100)}%` : '–') + cell('Total R', done.length ? `${totalR > 0 ? '+' : ''}${totalR.toFixed(1)}R` : '–', totalR > 0 ? 'up' : totalR < 0 ? 'dn' : '');
     $('jCount').textContent = es.length ? es.length : '';
   }
   function drawJournal() {
     drawStats();
-    $('jNote').textContent = state.mode === 'local' ? 'saved in this browser only' : state.mode === 'slow' ? 'the journal cannot be reached yet' : '';
-    if (state.mode === 'loading') { $('journal').innerHTML = '<div class="empty">Loading your journal…</div>'; return; }
-    if (!state.entries.length) { $('journal').innerHTML = '<div class="empty"><b>Nothing saved yet</b>Every chart you analyse is saved here with its entry, stop and targets. Mark each one win, loss or break-even and this page adds up your results.</div>'; return; }
+    $('jNote').textContent = state.mode === 'local' ? 'saved in this browser only' : state.mode === 'slow' ? 'cannot be reached yet' : '';
+    if (state.mode === 'loading') { $('journal').innerHTML = '<div class="empty">Loading…</div>'; return; }
+    if (!state.entries.length) { $('journal').innerHTML = '<div class="empty"><b>Nothing saved yet</b>Every analysis lands here. Mark each win, loss or break-even to track your R.</div>'; return; }
     $('journal').innerHTML = state.entries.map((e) => {
       const dec = (INS.INSTRUMENTS[e.market] || { decimals: 2 }).decimals; const f = priceFmt(dec);
       const when = new Date(e.createdAt).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-      const lv = e.entry !== null ? `entry ${f(e.entry)} · stop ${f(e.stop)} · ${e.targets.map((t) => `${t.rr}R ${f(t.price)}`).join(' · ')}` : esc(e.reason);
+      const lv = e.entry !== null ? `${f(e.entry)} → stop ${f(e.stop)} → ${e.targets.map((t) => `${t.rr}R ${f(t.price)}`).join(' · ')}` : esc((e.summary || e.reason || '').slice(0, 80));
       const traded = e.action !== 'WAIT';
-      return `<div class="entry" data-id="${esc(e.id)}">
-        ${e.thumb ? `<img class="pic" src="${e.thumb}" alt="">` : '<div class="pic"></div>'}
-        <div><div class="head"><span class="badge sm ${esc(e.action)}">${esc(e.action)}</span><b>${esc(e.market)}</b><span class="num">${e.score}/100</span><span class="muted">${esc(e.grade)}</span><span class="when">${esc(when)}</span></div>
-          <div class="lvls">${lv}</div>
-          <div class="ctl">${traded || e.entry !== null ? `<select data-f="outcome" aria-label="Outcome">${OUT.filter(([k]) => k !== 'none' || !traded).map(([k, n]) => `<option value="${k}" ${e.outcome === k ? 'selected' : ''}>${n}</option>`).join('')}</select>
-            <input class="r" data-f="resultR" type="number" step="0.1" inputmode="decimal" placeholder="R" value="${e.resultR ?? ''}" aria-label="Result in R">` : ''}
-            <input class="note" data-f="note" type="text" maxlength="300" placeholder="Your note" value="${esc(e.note)}" aria-label="Note"></div></div>
-        <div class="side"><button class="btn ghost small" type="button" data-a="open">${state.open === e.id ? 'Close' : 'Open'}</button>
-          ${state.confirmDel === e.id ? '<button class="btn ghost small danger" type="button" data-a="del-yes">Yes, delete</button><button class="btn ghost small" type="button" data-a="del-no">Keep</button>' : '<button class="btn ghost small danger" type="button" data-a="del">Delete</button>'}</div></div>`;
+      return `<div class="entry" data-id="${esc(e.id)}">${e.thumb ? `<img class="pic" src="${e.thumb}" alt="">` : '<div class="pic"></div>'}
+        <div><div class="head"><span class="badge ${esc(e.action)}">${esc(e.action)}</span><b>${esc(e.market)}</b><span class="num">${e.score}</span><span class="when">${esc(when)}</span></div><div class="lvls">${lv}</div>
+          <div class="ctl">${traded || e.entry !== null ? `<select data-f="outcome" aria-label="Outcome">${OUT.filter(([k]) => k !== 'none' || !traded).map(([k, n]) => `<option value="${k}" ${e.outcome === k ? 'selected' : ''}>${n}</option>`).join('')}</select><input class="r" data-f="resultR" type="number" step="0.1" inputmode="decimal" placeholder="R" value="${e.resultR ?? ''}" aria-label="Result in R">` : ''}<input class="note" data-f="note" type="text" maxlength="300" placeholder="Note" value="${esc(e.note)}" aria-label="Note"></div></div>
+        <div class="side"><button class="btn ghost small" type="button" data-a="open">${state.open === e.id ? 'Close' : 'Open'}</button>${state.confirmDel === e.id ? '<button class="btn ghost small danger" type="button" data-a="del-yes">Yes, delete</button><button class="btn ghost small" type="button" data-a="del-no">Keep</button>' : '<button class="btn ghost small danger" type="button" data-a="del">Delete</button>'}</div></div>`;
     }).join('');
   }
   $('journal').addEventListener('click', (ev) => {
@@ -718,9 +769,8 @@ dl.gloss dt { font-weight: 700; } dl.gloss dd { margin: 0; color: var(--muted); 
     else if (a === 'del-no') { state.confirmDel = null; drawJournal(); }
     else if (a === 'del-yes') { state.confirmDel = null; removeEntry(id); }
     else if (a === 'open') {
-      const e = state.entries.find((x) => x.id === id);
-      state.open = state.open === id ? null : id;
-      if (state.open && e && e.result) { show($('detail'), e.result, { thumb: e.thumb, key: 'J' }); $('detail').scrollIntoView({ behavior: 'smooth', block: 'start' }); } else $('detail').innerHTML = '';
+      const e = state.entries.find((x) => x.id === id); state.open = state.open === id ? null : id;
+      if (state.open && e && e.result) { show($('detail'), e.result, { imgUrl: e.thumb, key: 'J' }); $('detail').scrollIntoView({ behavior: 'smooth', block: 'start' }); } else $('detail').innerHTML = '';
       drawJournal();
     }
   });
@@ -728,54 +778,40 @@ dl.gloss dt { font-weight: 700; } dl.gloss dd { margin: 0; color: var(--muted); 
     const el = ev.target.closest('[data-f]'); if (!el) return;
     const id = el.closest('.entry').dataset.id; const e = state.entries.find((x) => x.id === id); if (!e) return;
     const fld = el.dataset.f;
-    if (fld === 'outcome') {
-      const o = el.value;
-      patchEntry(id, { outcome: o, resultR: o === 'win' ? e.preferred || 1.5 : o === 'loss' ? -1 : o === 'be' ? 0 : null });
-    } else if (fld === 'resultR') patchEntry(id, { resultR: el.value === '' ? null : Number(el.value) });
+    if (fld === 'outcome') { const o = el.value; patchEntry(id, { outcome: o, resultR: o === 'win' ? e.preferred || 1.5 : o === 'loss' ? -1 : o === 'be' ? 0 : null }); }
+    else if (fld === 'resultR') patchEntry(id, { resultR: el.value === '' ? null : Number(el.value) });
     else patchEntry(id, { note: el.value });
   });
 
-  /* ---------------------------- playbook ---------------------------- */
-  function nyToLocal(mins) {
-    const now = Math.floor(Date.now() / 1000);
-    const d = new Date((now + (mins - T.ny(now).mins) * 60) * 1000);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-  function drawPlaybook() {
-    const rows = [...T.KILLZONES.map((k) => [k.name, k.start, k.end, k.quality === 0 ? 'Do not trade' : k.quality > 0.7 ? 'Best' : k.quality > 0.45 ? 'Good' : 'Lower quality']), ...T.SILVER_BULLETS.map((k) => [k.name.replace(/ \(.*/, ''), k.start, k.end, 'One clean setup'])].sort((a, b) => ((a[1] + 360) % 1440) - ((b[1] + 360) % 1440));
-    $('kzTable').innerHTML = `<tr><th>Window</th><th>New York</th><th>Your time</th><th>Use</th></tr>${rows.map(([n, a, b, u]) => `<tr><td>${esc(n.replace(/ \(.*/, ''))}</td><td class="num">${T.fmtMins(a)}–${T.fmtMins(b)}</td><td class="num">${nyToLocal(a)}–${nyToLocal(b)}</td><td>${u}</td></tr>`).join('')}`;
-    const W = A.WEIGHTS;
-    const names = [['htf', 'Higher-timeframe bias'], ['sweep', 'Liquidity sweep'], ['mss', 'Structure shift with displacement'], ['array', 'Entry gap or block'], ['room', 'Room to the liquidity target'], ['pd', 'Premium / discount'], ['time', 'Killzone timing'], ['ote', 'Optimal trade entry'], ['smt', 'Indicators on your chart'], ['open', 'Opening price'], ['h1', 'Order flow one timeframe up'], ['newsSentiment', 'News tone'], ['newsCalendar', 'Calendar risk']];
-    $('wTable').innerHTML = `<tr><th>Check</th><th class="num">Points</th></tr>${names.map(([k, n]) => `<tr><td>${n}</td><td class="num">${W[k]}</td></tr>`).join('')}<tr><td><b>Chart reading (ICT)</b> 87.5 · <b>News</b> 12.5</td><td class="num"><b>100</b></td></tr>`;
-    $('cTable').innerHTML = `<tr><th>Symbol</th><th>Market</th><th class="num">Tick</th><th class="num">$ / point</th></tr>${Object.values(INS.INSTRUMENTS).map((i) => `<tr><td><b>${i.key}</b></td><td>${esc(i.name)}</td><td class="num">${i.tick}</td><td class="num">$${i.pointValue}</td></tr>`).join('')}`;
-  }
-  drawPlaybook();
+  /* ------------------------------ playbook ------------------------------ */
+  function nyToLocal(mins) { const now = Math.floor(Date.now() / 1000); return new Date((now + (mins - T.ny(now).mins) * 60) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+  (function drawPlaybook() {
+    const rows = T.KILLZONES.map((k) => [k.name.replace(' killzone', '').replace(/ \(.*/, ''), k.start, k.end, k.quality === 0 ? 'Avoid' : k.quality > 0.7 ? 'Best' : k.quality > 0.45 ? 'Good' : 'Low']).sort((a, b) => ((a[1] + 360) % 1440) - ((b[1] + 360) % 1440));
+    $('kzTable').innerHTML = `<tr><th>Window</th><th>New York</th><th>Your time</th><th></th></tr>${rows.map(([n, a, b, u]) => `<tr><td>${esc(n)}</td><td class="num">${T.fmtMins(a)}–${T.fmtMins(b)}</td><td class="num">${nyToLocal(a)}–${nyToLocal(b)}</td><td>${u}</td></tr>`).join('')}`;
+    const W = A.WEIGHTS; const names = [['htf', 'Bias'], ['sweep', 'Sweep'], ['mss', 'Shift'], ['array', 'Entry zone'], ['room', 'Room'], ['pd', 'Price zone'], ['time', 'Killzone'], ['ote', 'OTE'], ['smt', 'Indicators / SMT'], ['open', 'Open'], ['h1', 'H1 flow'], ['newsSentiment', 'News tone'], ['newsCalendar', 'Calendar']];
+    $('wTable').innerHTML = `<tr><th>Check</th><th class="r">Points</th></tr>${names.map(([k, n]) => `<tr><td>${n}</td><td class="num r">${W[k]}</td></tr>`).join('')}<tr><td><b>Chart 87.5 + News 12.5</b></td><td class="num r"><b>100</b></td></tr>`;
+    $('cTable').innerHTML = `<tr><th>Symbol</th><th class="r">Tick</th><th class="r">$ / point</th></tr>${Object.values(INS.INSTRUMENTS).map((i) => `<tr><td><b>${i.key}</b> <span class="muted">${esc(i.name)}</span></td><td class="num r">${i.tick}</td><td class="num r">$${i.pointValue}</td></tr>`).join('')}`;
+  }());
 
-  /* ------------------------------ code ------------------------------- */
+  /* -------------------------------- code -------------------------------- */
   const codeState = { files: null, current: null, text: '', dl: null };
-  const GROUPS = [['lib/', 'The algorithm and checks'], ['site/', 'This site'], ['public/', 'Local app: page'], ['test/', 'Tests'], ['', 'Project']];
+  const GROUPS = [['lib/', 'Algorithm and checks'], ['site/', 'This site'], ['public/', 'Local app'], ['test/', 'Tests']];
   function drawCodeList() {
-    const names = Object.keys(codeState.files);
-    let h = '';
-    for (const [prefix, title] of GROUPS) {
-      const list = names.filter((n) => (prefix ? n.startsWith(prefix) : !n.includes('/') || !GROUPS.slice(0, 4).some(([q]) => n.startsWith(q))));
-      if (prefix === '' && !list.length) continue;
-      const shown = list.filter((n) => prefix !== '' || !GROUPS.slice(0, 4).some(([q]) => n.startsWith(q)));
-      if (!shown.length) continue;
-      h += `<div class="grp">${title}</div>` + shown.map((n) => `<button type="button" role="option" data-f="${esc(n)}" class="${n === codeState.current ? 'on' : ''}" aria-selected="${n === codeState.current}">${esc(n)}</button>`).join('');
-    }
+    const names = Object.keys(codeState.files); let h = '';
+    const btn = (n) => `<button type="button" role="option" data-f="${esc(n)}" class="${n === codeState.current ? 'on' : ''}" aria-selected="${n === codeState.current}">${esc(n)}</button>`;
+    for (const [prefix, title] of GROUPS) { const list = names.filter((n) => n.startsWith(prefix)); if (list.length) h += `<div class="grp">${title}</div>${list.map(btn).join('')}`; }
+    const rest = names.filter((n) => !GROUPS.some(([q]) => n.startsWith(q))); if (rest.length) h += `<div class="grp">Project</div>${rest.map(btn).join('')}`;
     $('codeFiles').innerHTML = h;
   }
   function openFile(name) {
     codeState.current = name; codeState.text = codeState.files[name] || '';
     $('codeName').textContent = `${name} · ${codeState.text.split('\n').length.toLocaleString('en-US')} lines`;
-    $('codeBody').textContent = codeState.text; $('codeBody').scrollTop = 0; $('codeMsg').textContent = '';
-    drawCodeList();
+    $('codeBody').textContent = codeState.text; $('codeBody').scrollTop = 0; $('codeMsg').textContent = ''; drawCodeList();
   }
   $('codeFiles').onclick = (e) => { const b = e.target.closest('button[data-f]'); if (b) openFile(b.dataset.f); };
   $('codeCopy').onclick = async () => {
     try { await navigator.clipboard.writeText(codeState.text); $('codeMsg').textContent = 'Copied.'; }
-    catch { const r = document.createRange(); r.selectNodeContents($('codeBody')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $('codeMsg').textContent = 'Selected. Press Ctrl+C (or Cmd+C) to copy.'; }
+    catch { const r = document.createRange(); r.selectNodeContents($('codeBody')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $('codeMsg').textContent = 'Selected. Press Ctrl+C or Cmd+C.'; }
   };
   $('codeSave').onclick = async () => {
     try { await codeState.dl.save({ filename: 'ict-analyzer-source.json', data: JSON.stringify({ project: 'ict-analyzer', files: codeState.files }, null, 1) }); $('codeMsg').textContent = 'Saved.'; }
@@ -786,12 +822,11 @@ dl.gloss dt { font-weight: 700; } dl.gloss dd { margin: 0; color: var(--muted); 
     openFile(Object.keys(j.files).includes('lib/analyze.js') ? 'lib/analyze.js' : Object.keys(j.files)[0]);
   }).catch(() => { $('codeName').textContent = 'The code could not be loaded.'; $('codeCopy').hidden = true; });
 
-  /* ------------------------ connect to Claude ----------------------- */
+  /* ------------------------- connect to Claude ------------------------- */
   state.entries = []; drawJournal();
   const cl = window.claude;
   if (cl && typeof cl.use === 'function') {
-    state.sample = undefined; // still connecting
-    cl.use('sample').then((s) => { state.sample = s; if (!s) say('err', 'Chart reading needs Claude. Open this page on claude.ai or in the Claude app.'); }).catch(() => { state.sample = null; });
+    cl.use('sample').then((s) => { state.sample = s; }).catch(() => { state.sample = null; });
     cl.use('downloads').then((d) => { if (d) { codeState.dl = d; $('codeSave').hidden = false; } }).catch(() => {});
     cl.use('db').then((db) => {
       if (!db) { state.mode = 'local'; state.entries = localAll(); return drawJournal(); }
@@ -799,13 +834,9 @@ dl.gloss dt { font-weight: 700; } dl.gloss dd { margin: 0; color: var(--muted); 
       const slow = setTimeout(() => { if (state.mode === 'loading') { state.mode = 'slow'; drawJournal(); } }, 10000);
       db.collection('journal').orderBy('createdAt', 'desc').limit(300).onSnapshot((snap) => {
         if (!snap.metadata.fromCache) clearTimeout(slow);
-        state.mode = 'db';
-        state.entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        drawJournal();
+        state.mode = 'db'; state.entries = snap.docs.map((d) => ({ id: d.id, ...d.data() })); drawJournal();
       }, () => { clearTimeout(slow); state.db = null; state.mode = 'local'; state.entries = localAll(); drawJournal(); });
     }).catch(() => { state.mode = 'local'; state.entries = localAll(); drawJournal(); });
-  } else {
-    state.sample = null; state.mode = 'local'; state.entries = localAll(); drawJournal();
-  }
+  } else { state.sample = null; state.mode = 'local'; state.entries = localAll(); drawJournal(); }
 }());
 </script>

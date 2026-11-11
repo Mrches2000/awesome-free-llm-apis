@@ -1425,6 +1425,7 @@ Rules:
 - If something cannot be determined from the picture, say so and score it 0.
 - Never force a trade. "No setup, wait" is a correct and common answer.
 - If the chart shows a different market than the one the trader selected, analyse the chart you see anyway and mention the difference in "problems". Set "readable" to false only when the candles or the price axis cannot be made out.
+- Keep every text field SHORT. The trader reads this on a phone between trades.
 - Reply with exactly one JSON object and nothing else. No markdown.`;
 
 function buildPrompt({ inst, session, notes, count, context, news, guide, ownData }) {
@@ -1465,15 +1466,19 @@ function buildPrompt({ inst, session, notes, count, context, news, guide, ownDat
    - Otherwise direction "none", state "none". A market that simply trends without a raid has no setup: say so.
    - Always fill "wait_for" with the exact price action that must happen next, with prices.
    - Do NOT give take-profit prices; they are calculated from entry and stop.
-11. Score each item honestly between 0 and its maximum. Give 0 when the evidence is not on the chart.`);
+11. Price axis, Picture 1 only. List ALL the price labels on the main chart's price axis, from the TOP of the picture to the BOTTOM, as plain numbers (not the highlighted tags, and not the labels of a lower indicator pane such as RSI). Then list the highlighted tags on that axis as \"tags\": the last-price tag first, then any tag that shows an indicator value (a moving average for example), each as its price. Also give "plot_right": the horizontal fraction of the picture width where the price axis starts (the right edge of the candle area). The program finds where each label sits; you only read the numbers.
+12. Marks, Picture 1 only, at most 10, the things the trader should SEE: fair value gaps (fvg), inversion gaps (ifvg), order blocks (ob), breakers (breaker), liquidity pools such as old highs, old lows, equal highs, equal lows (liquidity), the candle that swept liquidity (sweep) and structure shifts (shift). Zones (fvg, ifvg, ob, breaker) need "top" and "bottom" prices. Liquidity, sweep and shift need "price". Every mark needs "x": your best estimate of the horizontal fraction (0 = left edge, 1 = right edge) of the candle where it starts: for a zone the candle that created it, for liquidity the swing high or low, for sweep and shift the candle itself. Keep marks that matter for the trade; skip the rest.
+13. Score each item honestly between 0 and its maximum. Give 0 when the evidence is not on the chart.`);
   L.push('', `REPLY WITH THIS JSON (numbers as numbers, prices exactly as on the axis):
 {
  "readable": true,
  "problems": "anything that made the chart hard to read, or empty",
  "chart": {"instrument": "", "timeframes": [""], "last_price": 0, "visible_high": 0, "visible_low": 0, "period": ""},
+ "axis": {"labels": [0], "tags": [0], "plot_right": 0.0},
+ "marks": [{"kind": "fvg|ifvg|ob|breaker|liquidity|sweep|shift", "dir": "bullish|bearish", "label": "", "top": 0, "bottom": 0, "price": 0, "x": 0.0}],
  "swings": [{"type": "high|low", "price": 0, "when": ""}],
  "indicators": [{"name": "", "reading": "", "implication": "bullish|bearish|neutral"}],
- "candles": "",
+ "candles": "max 15 words",
  "structure": {"trend": "bullish|bearish|ranging", "events": [{"type": "BOS|MSS|CHoCH", "direction": "bullish|bearish", "level": 0, "when": ""}]},
  "liquidity": {"above": [{"label": "", "price": 0}], "below": [{"label": "", "price": 0}], "swept": [{"label": "", "price": 0, "when": ""}]},
  "pd_arrays": [{"type": "FVG|IFVG|Order block|Breaker", "direction": "bullish|bearish", "low": 0, "high": 0, "note": ""}],
@@ -1488,10 +1493,10 @@ function buildPrompt({ inst, session, notes, count, context, news, guide, ownDat
   "open": {"pts": 0, "why": "max ${W.open}: long below / short above the midnight or daily opening price, if that price is known"},
   "h1": {"pts": 0, "why": "max ${W.h1}: order flow one timeframe above the entry agrees"}
  },
- "summary": "four or five plain sentences: what the chart shows and the best move",
+ "summary": "max 20 words: what the chart shows and the best move",
  "confidence": "low|medium|high"
 }
-Replace every "why" with your own one-sentence evidence.`);
+Replace every "why" with your own evidence in at most 10 words. Indicator readings: at most 8 words each.`);
   return L.join('\n');
 }
 
@@ -1562,6 +1567,41 @@ const arr = (x) => (Array.isArray(x) ? x : []);
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const dirOf = (s) => (/^(long|bull)/i.test(str(s)) ? 1 : /^(short|bear)/i.test(str(s)) ? -1 : 0);
 
+const MARK_KINDS = new Set(['fvg', 'ifvg', 'ob', 'breaker', 'liquidity', 'sweep', 'shift']);
+const ROUND = (n) => Math.round(n * 1e6) / 1e6;
+
+/**
+ * What the model saw for marking the picture: the price labels on the axis (the page
+ * finds where they sit by scanning pixels) and the marks, already checked for sense.
+ * Positions are fractions of the picture, so the size it is shown at does not matter.
+ */
+function buildAnnot(raw, { plausible }) {
+  const ax = raw.axis || {};
+  const labels = arr(ax.labels).map(num).filter((x) => x !== null);
+  const pr = num(ax.plot_right);
+  const tagPrices = arr(ax.tags).map(num).filter((x) => x !== null).slice(0, 8);
+  const out = { ok: false, labels: labels.slice(0, 40), tags: tagPrices, plotRight: pr !== null && pr > 0.5 && pr <= 1 ? pr : 0.92, slope: 0, intercept: 0, note: '', marks: [] };
+  const marks = [];
+  for (const m of arr(raw.marks)) {
+    const kind = str(m && m.kind, 12).toLowerCase();
+    if (!MARK_KINDS.has(kind)) continue;
+    const mk = { kind, dir: dirOf(m && m.dir), label: str(m && m.label, 16), x: num(m && m.x) };
+    if (mk.x !== null) mk.x = clamp(mk.x, 0, 1);
+    if (['fvg', 'ifvg', 'ob', 'breaker'].includes(kind)) {
+      const t = num(m.top); const b = num(m.bottom);
+      if (t === null || b === null || !plausible(t) || !plausible(b) || t === b) continue;
+      mk.top = Math.max(t, b); mk.bottom = Math.min(t, b);
+    } else {
+      const p = num(m.price);
+      if (p === null || !plausible(p)) continue;
+      mk.price = p;
+    }
+    marks.push(mk);
+  }
+  out.marks = marks.slice(0, 12);
+  return out;
+}
+
 /**
  * Turn the model's raw JSON into the same result shape the data engine produces.
  * The model reads the picture; every number is re-checked here and most of the
@@ -1594,7 +1634,7 @@ function buildResult(raw, { inst, now, news, engine, modelName, count }) {
     return { type: str(z && z.type, 30) || 'Zone', dir: dirOf(z && z.direction), low: lo !== null && hi !== null ? Math.min(lo, hi) : lo, high: lo !== null && hi !== null ? Math.max(lo, hi) : hi, note: str(z && z.note, 160) };
   }).filter((z) => plausible(z.low) && plausible(z.high)).slice(0, 6);
   const events = arr(raw.structure && raw.structure.events).map((e) => ({ type: str(e && e.type, 10) || 'BOS', dir: dirOf(e && e.direction), level: num(e && e.level), when: str(e && e.when, 60) })).filter((e) => plausible(e.level)).slice(0, 6);
-  const indicators = arr(raw.indicators).map((i) => ({ name: str(i && i.name, 60), reading: str(i && i.reading, 260), dir: dirOf(i && i.implication) })).filter((i) => i.name).slice(0, 12);
+  const indicators = arr(raw.indicators).map((i) => ({ name: str(i && i.name, 60), reading: str(i && i.reading, 90), dir: dirOf(i && i.implication) })).filter((i) => i.name).slice(0, 8);
 
   // dealing range: the model's, widened by the swing points it listed
   const dr = raw.dealing_range || {};
@@ -1612,6 +1652,7 @@ function buildResult(raw, { inst, now, news, engine, modelName, count }) {
     swingTrend = hh && hl ? 'bullish (higher highs and higher lows)' : !hh && !hl ? 'bearish (lower highs and lower lows)' : 'mixed (no clean sequence of highs and lows)';
   }
 
+  const annot = buildAnnot(raw, { plausible });
   const biasDir = dirOf(raw.bias && raw.bias.direction);
   const bias = {
     dir: biasDir, label: biasDir === 1 ? 'Bullish' : biasDir === -1 ? 'Bearish' : 'Neutral / mixed',
@@ -1655,7 +1696,7 @@ function buildResult(raw, { inst, now, news, engine, modelName, count }) {
 
   /* ---- checklist: same weights as the data engine ---- */
   const sc = raw.scores || {};
-  const got = (k) => ({ pts: clamp(num(sc[k] && sc[k].pts) ?? 0, 0, W[k]), why: str(sc[k] && sc[k].why, 320) || 'No evidence given.' });
+  const got = (k) => ({ pts: clamp(num(sc[k] && sc[k].pts) ?? 0, 0, W[k]), why: str(sc[k] && sc[k].why, 110) || 'No evidence given.' });
   const items = [];
   const put = (key, label, pts, detail) => items.push({ key, label, max: W[key], pts: Math.round(clamp(pts, 0, W[key]) * 10) / 10, detail });
 
@@ -1781,7 +1822,8 @@ function buildResult(raw, { inst, now, news, engine, modelName, count }) {
       note: 'Read from your screenshot by an AI model. Prices taken from a picture are approximate — snap the entry and stop to the exact candle on your own chart.',
     },
     bias, session, range, plan, news: news || null,
-    read: { indicators, candles: str(raw.candles, 900), trend: str(raw.structure && raw.structure.trend, 20), swingTrend, swings, events, above, below, swept, arrays, summary: str(raw.summary, 1200), problems: str(raw.problems, 300), issues },
+    read: { indicators, candles: str(raw.candles, 170), trend: str(raw.structure && raw.structure.trend, 20), swingTrend, swings, events, above, below, swept, arrays, summary: str(raw.summary, 200), problems: str(raw.problems, 200), issues, marks: annot.marks },
+    annot,
     engine: engine || null,
   };
   if (engine && !same) result.meta.note += ` This chart (${f(last)}) does not look like ${inst.key} (${f(engine.price)} on the price feed): check that the right market is selected at the top. Position size and price rounding assume ${inst.key}.`;
@@ -1896,6 +1938,7 @@ function fuse(e, v, { f, inst }) {
     note: `Your screenshot was matched to ${own ? 'the price data you added' : `${inst.key} price data`} (your chart ${f(v.meta.price)}, data ${f(feed)}${own ? '' : ' about 10 minutes late'}). The candle analysis is calculated from that data; the indicators, drawings and newest price are read from your picture by AI.`,
   });
   const agree = v.bias.dir === 0 || e.bias.dir === 0 ? null : v.bias.dir === e.bias.dir;
+  e.annot = v.annot;
   e.vision = {
     read: v.read, bias: v.bias, agree,
     plan: { action: v.plan.action, score: v.plan.score, entry: v.plan.entry, stop: v.plan.stop, reason: v.plan.reason, wait: v.plan.wait },
