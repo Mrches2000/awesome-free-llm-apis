@@ -81,7 +81,7 @@ function keyLevels(tf, S, step, tNow) {
 
 /* ----------------------------- liquidity ------------------------------ */
 
-function buildPools(tf, A, KL, S, tNow) {
+function buildPools(tf, A, KL, S, tNow, inst, price) {
   const raw = [];
   const add = (side, price, label, t, strength) => {
     if (Number.isFinite(price) && t <= tNow) raw.push({ side, price, label, t, strength });
@@ -152,6 +152,17 @@ function buildPools(tf, A, KL, S, tNow) {
     }
     flush();
   }
+  // Round-number figures ($50 and $100 for gold): price is drawn to them, but they are never "taken".
+  if (inst && inst.round && Number.isFinite(price)) {
+    const { step, major } = inst.round;
+    const reach = Math.max(6 * ((A.M15 && A.M15.atrNow) || (A.H1 && A.H1.atrNow / 2) || 0), 1.2 * step);
+    for (let lvl = Math.ceil((price - reach) / step) * step; lvl <= price + reach; lvl += step) {
+      if (Math.abs(lvl - price) < 0.3 * tolM) continue;
+      if (pools.some((p) => Math.abs(p.price - lvl) <= tolM)) continue; // a real level already sits there
+      const label = `$${lvl.toLocaleString('en-US')}`;
+      pools.push({ side: lvl > price ? 'BSL' : 'SSL', price: lvl, label, labels: [label], strength: lvl % major === 0 ? 2.5 : 1.5, t: tNow - 86400, takenT: null, round: true });
+    }
+  }
   return pools;
 }
 
@@ -160,6 +171,7 @@ function findSweeps(c, pools) {
   const out = [];
   if (!c.length) return out;
   for (const p of pools) {
+    if (p.round) continue; // figures are magnets, not stops to be raided
     if (p.takenT !== null && p.takenT < c[0].t) continue;
     for (let i = 0; i < c.length; i++) {
       if (c[i].t < p.t) continue;
@@ -565,7 +577,7 @@ function analyze({ inst, tf, smt: smtTf, news, source, clock, indicators, livePr
   const sName = ['M5', 'M15', 'H1'].find((k) => tf[k] && tf[k].length >= 30) || baseName;
   const S = tf[sName];
   const KL = keyLevels(tf, S, TF_SECONDS[sName], tNow);
-  const pools = buildPools(tf, A, KL, S, tNow);
+  const pools = buildPools(tf, A, KL, S, tNow, inst, price);
   const bias = computeBias(A, KL, price);
   const range = dealingRange(A.H1);
   const session = sessionInfo(tNow);

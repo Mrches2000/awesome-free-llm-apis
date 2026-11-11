@@ -65,7 +65,7 @@ Rules:
 function buildPrompt({ inst, session, notes, count, context, news, guide, ownData }) {
   const W = WEIGHTS;
   const L = [];
-  L.push(`MARKET THE TRADER SELECTED: ${inst.name} (${inst.key}), minimum price step ${inst.tick}.`);
+  L.push(`MARKET THE TRADER SELECTED: ${inst.name} (${inst.tv || inst.key}), minimum price step ${inst.tick}.${inst.group === 'gold' ? ' Prices are US dollars per ounce; round figures such as 4,050 and 4,100 matter as levels.' : ''}`);
   L.push(`TIME NOW: ${session.nyTime} New York — ${session.killzone ? session.killzone.name : 'outside the ICT killzones'}${session.silverBullet ? `, ${session.silverBullet.name}` : ''}.`);
   L.push(`SCREENSHOTS: ${count}. ${count > 1 ? 'They are usually different timeframes of the same market: use the highest timeframe for bias and the lowest for the entry.' : ''}`);
   if (guide) L.push(String(guide).slice(0, 600));

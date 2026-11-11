@@ -417,26 +417,45 @@ module.exports = { findSwings, findFVGs, findStructure, findOrderBlocks, findBPR
 // tick = minimum price step, pointValue = USD per 1.00 of price movement per contract.
 const INSTRUMENTS = {
   MNQ: {
-    key: 'MNQ', name: 'Micro E-mini Nasdaq-100', group: 'nasdaq', yahoo: 'MNQ=F', smt: 'ES=F', smtName: 'E-mini S&P 500 (ES)',
+    key: 'MNQ', tv: 'MNQ1!', name: 'Micro E-mini Nasdaq-100', group: 'nasdaq', yahoo: 'MNQ=F', smt: 'ES=F', smtName: 'E-mini S&P 500 (ES)',
     tick: 0.25, pointValue: 2, decimals: 2, unit: 'pts', demoPrice: 25000, demoVol: 0.00028,
   },
   NQ: {
-    key: 'NQ', name: 'E-mini Nasdaq-100', group: 'nasdaq', yahoo: 'NQ=F', smt: 'ES=F', smtName: 'E-mini S&P 500 (ES)',
+    key: 'NQ', tv: 'NQ1!', name: 'E-mini Nasdaq-100', group: 'nasdaq', yahoo: 'NQ=F', smt: 'ES=F', smtName: 'E-mini S&P 500 (ES)',
     tick: 0.25, pointValue: 20, decimals: 2, unit: 'pts', demoPrice: 25000, demoVol: 0.00028,
   },
   MGC: {
-    key: 'MGC', name: 'Micro Gold', group: 'gold', yahoo: 'MGC=F', smt: 'SI=F', smtName: 'Silver (SI)',
+    key: 'MGC', tv: 'MGC1!', name: 'Micro Gold', group: 'gold', yahoo: 'MGC=F', smt: 'SI=F', smtName: 'Silver (SI)',
     tick: 0.1, pointValue: 10, decimals: 1, unit: '$', demoPrice: 4000, demoVol: 0.00019,
+    round: { step: 50, major: 100 }, // gold respects the $50 and $100 figures
   },
   GC: {
-    key: 'GC', name: 'Gold futures', group: 'gold', yahoo: 'GC=F', smt: 'SI=F', smtName: 'Silver (SI)',
+    key: 'GC', tv: 'GC1!', name: 'Gold futures', group: 'gold', yahoo: 'GC=F', smt: 'SI=F', smtName: 'Silver (SI)',
     tick: 0.1, pointValue: 100, decimals: 1, unit: '$', demoPrice: 4000, demoVol: 0.00019,
+    round: { step: 50, major: 100 },
   },
 };
 
+/** Value of one tick for one contract (MGC: $1, GC: $10, MNQ: $0.50, NQ: $5). */
+const tickValue = (inst) => Math.round(inst.tick * inst.pointValue * 100) / 100;
+
+/**
+ * Which market a chart title belongs to ("MGC1!", "Micro Gold Futures", "XAUUSD", "MNQ1!", "US100").
+ * Returns an instrument key, or null when it cannot tell.
+ */
+function detectMarket(text) {
+  const t = String(text || '').toUpperCase();
+  if (!t) return null;
+  if (/\bMGC/.test(t) || /MICRO\s+GOLD/.test(t)) return 'MGC';
+  if (/\bGC[0-9!]|\bGC\b|\bXAU|GOLD/.test(t)) return 'GC';
+  if (/\bMNQ/.test(t) || /MICRO\s+E-?MINI\s+NASDAQ/.test(t)) return 'MNQ';
+  if (/\bNQ[0-9!]|\bNQ\b|NASDAQ|\bUS100|\bNAS100|\bUSTEC/.test(t)) return 'NQ';
+  return null;
+}
+
 const roundTick = (inst, p) => Number((Math.round(p / inst.tick) * inst.tick).toFixed(inst.decimals));
 
-module.exports = { INSTRUMENTS, roundTick };
+module.exports = { INSTRUMENTS, roundTick, tickValue, detectMarket };
 
   },
   "narrative": function (module, exports, require) {
@@ -718,7 +737,7 @@ function keyLevels(tf, S, step, tNow) {
 
 /* ----------------------------- liquidity ------------------------------ */
 
-function buildPools(tf, A, KL, S, tNow) {
+function buildPools(tf, A, KL, S, tNow, inst, price) {
   const raw = [];
   const add = (side, price, label, t, strength) => {
     if (Number.isFinite(price) && t <= tNow) raw.push({ side, price, label, t, strength });
@@ -789,6 +808,17 @@ function buildPools(tf, A, KL, S, tNow) {
     }
     flush();
   }
+  // Round-number figures ($50 and $100 for gold): price is drawn to them, but they are never "taken".
+  if (inst && inst.round && Number.isFinite(price)) {
+    const { step, major } = inst.round;
+    const reach = Math.max(6 * ((A.M15 && A.M15.atrNow) || (A.H1 && A.H1.atrNow / 2) || 0), 1.2 * step);
+    for (let lvl = Math.ceil((price - reach) / step) * step; lvl <= price + reach; lvl += step) {
+      if (Math.abs(lvl - price) < 0.3 * tolM) continue;
+      if (pools.some((p) => Math.abs(p.price - lvl) <= tolM)) continue; // a real level already sits there
+      const label = `$${lvl.toLocaleString('en-US')}`;
+      pools.push({ side: lvl > price ? 'BSL' : 'SSL', price: lvl, label, labels: [label], strength: lvl % major === 0 ? 2.5 : 1.5, t: tNow - 86400, takenT: null, round: true });
+    }
+  }
   return pools;
 }
 
@@ -797,6 +827,7 @@ function findSweeps(c, pools) {
   const out = [];
   if (!c.length) return out;
   for (const p of pools) {
+    if (p.round) continue; // figures are magnets, not stops to be raided
     if (p.takenT !== null && p.takenT < c[0].t) continue;
     for (let i = 0; i < c.length; i++) {
       if (c[i].t < p.t) continue;
@@ -1202,7 +1233,7 @@ function analyze({ inst, tf, smt: smtTf, news, source, clock, indicators, livePr
   const sName = ['M5', 'M15', 'H1'].find((k) => tf[k] && tf[k].length >= 30) || baseName;
   const S = tf[sName];
   const KL = keyLevels(tf, S, TF_SECONDS[sName], tNow);
-  const pools = buildPools(tf, A, KL, S, tNow);
+  const pools = buildPools(tf, A, KL, S, tNow, inst, price);
   const bias = computeBias(A, KL, price);
   const range = dealingRange(A.H1);
   const session = sessionInfo(tNow);
@@ -1431,7 +1462,7 @@ Rules:
 function buildPrompt({ inst, session, notes, count, context, news, guide, ownData }) {
   const W = WEIGHTS;
   const L = [];
-  L.push(`MARKET THE TRADER SELECTED: ${inst.name} (${inst.key}), minimum price step ${inst.tick}.`);
+  L.push(`MARKET THE TRADER SELECTED: ${inst.name} (${inst.tv || inst.key}), minimum price step ${inst.tick}.${inst.group === 'gold' ? ' Prices are US dollars per ounce; round figures such as 4,050 and 4,100 matter as levels.' : ''}`);
   L.push(`TIME NOW: ${session.nyTime} New York — ${session.killzone ? session.killzone.name : 'outside the ICT killzones'}${session.silverBullet ? `, ${session.silverBullet.name}` : ''}.`);
   L.push(`SCREENSHOTS: ${count}. ${count > 1 ? 'They are usually different timeframes of the same market: use the highest timeframe for bias and the lowest for the entry.' : ''}`);
   if (guide) L.push(String(guide).slice(0, 600));

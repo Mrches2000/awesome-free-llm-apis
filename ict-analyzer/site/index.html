@@ -98,6 +98,13 @@ button { cursor: pointer; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
 
+/* gold drivers */
+.drivers { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--warn-soft); }
+.drivers .dLabel { font: 700 12px var(--body); letter-spacing: .6px; text-transform: uppercase; color: var(--warn); }
+.dSel { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.dSel select { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; color: var(--fg); font-size: 13px; }
+.tickLine { font-size: 12.5px; color: var(--muted); margin-top: -4px; }
+
 /* cockpit */
 .cockpit { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
 .stage { display: grid; gap: 10px; min-width: 0; }
@@ -268,11 +275,17 @@ pre.code { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
         <div class="thumbs" id="thumbs"></div>
         <input type="file" id="files" accept="image/png,image/jpeg,image/webp" multiple hidden>
       </div>
+      <div class="drivers" id="drivers" hidden>
+        <span class="dLabel">Gold today</span>
+        <label class="dSel"><span>Dollar</span><select id="dxy"><option value="-1">Falling</option><option value="0" selected>Flat</option><option value="1">Rising</option></select></label>
+        <label class="dSel"><span>US 10Y yield</span><select id="yld"><option value="-1">Falling</option><option value="0" selected>Flat</option><option value="1">Rising</option></select></label>
+        <label class="dSel"><span>Fear / war news</span><select id="fear"><option value="-1">Falling</option><option value="0" selected>Flat</option><option value="1">Rising</option></select></label>
+      </div>
       <div class="opts" id="opts" hidden>
         <label class="field" for="cal">Big news in the next hour?
           <select id="cal"><option value="none">None</option><option value="soon">Within 30 minutes</option><option value="hour">In 30 to 60 minutes</option><option value="unknown" selected>Not checked</option></select>
         </label>
-        <label class="field" for="tone">News tone today
+        <label class="field" for="tone" id="toneField">News tone today
           <select id="tone"><option value="-0.6">Bearish</option><option value="-0.25">Slightly bearish</option><option value="0" selected>Neutral</option><option value="0.25">Slightly bullish</option><option value="0.6">Bullish</option></select>
         </label>
         <label class="field grow" for="note">Note for Claude
@@ -318,6 +331,10 @@ pre.code { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       <section class="card"><h2>Score weights</h2><div class="scroll"><table class="tbl" id="wTable"></table></div></section>
       <section class="card"><h2>Contracts</h2><div class="scroll"><table class="tbl" id="cTable"></table></div></section>
     </div>
+    <section class="card"><h2>Gold clock <small class="muted">MGC1!</small></h2>
+      <div class="scroll"><table class="tbl" id="goldTable"></table></div>
+      <p class="muted" style="margin-top:10px;font-size:13px">Gold reacts most to the dollar, US yields, the Fed and war news.</p>
+    </section>
     <section class="card"><h2>Words</h2>
       <dl class="gloss">
         <dt>Liquidity</dt><dd>Stops resting above old highs and below old lows.</dd>
@@ -363,8 +380,8 @@ pre.code { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
   };
   if (!window.ICT) { $('status').className = 'status err'; $('status').textContent = 'The analysis code did not load. Reload the page.'; return; }
   const { vision, analyze: A, time: T, instruments: INS } = window.ICT;
-  const MARKETS = [['MNQ', 'Micro Nasdaq'], ['MGC', 'Micro Gold'], ['NQ', 'Nasdaq'], ['GC', 'Gold']];
-  const state = { market: store.get('desk.market', 'MNQ'), shots: [], csv: null, busy: false, ctl: null, sample: undefined, db: null, entries: [], mode: 'loading', open: null, confirmDel: null };
+  const MARKETS = [['MGC', 'Micro Gold'], ['MNQ', 'Micro Nasdaq'], ['GC', 'Gold'], ['NQ', 'Nasdaq']];
+  const state = { market: store.get('desk.market2', 'MGC'), shots: [], csv: null, busy: false, ctl: null, sample: undefined, db: null, entries: [], mode: 'loading', open: null, confirmDel: null };
   const money = (x) => `$${Number(x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const priceFmt = (dec) => (p) => Number(p).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -387,9 +404,13 @@ pre.code { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
   window.addEventListener('hashchange', route); route();
 
   /* ----------------------------- composer ----------------------------- */
-  function drawMarkets() { $('markets').innerHTML = MARKETS.map(([k, n]) => `<button type="button" data-k="${k}" class="${k === state.market ? 'on' : ''}" title="${esc(n)}" aria-pressed="${k === state.market}">${k}</button>`).join(''); }
-  $('markets').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; state.market = b.dataset.k; store.set('desk.market', state.market); drawMarkets(); };
-  drawMarkets();
+  const tvName = (k) => (INS.INSTRUMENTS[k] && INS.INSTRUMENTS[k].tv) || k;
+  const isGold = () => INS.INSTRUMENTS[state.market].group === 'gold';
+  function drawMarkets() { $('markets').innerHTML = MARKETS.map(([k, n]) => `<button type="button" data-k="${k}" class="${k === state.market ? 'on' : ''}" title="${esc(n)}" aria-pressed="${k === state.market}">${tvName(k)}</button>`).join(''); }
+  function syncMarket() { $('drivers').hidden = !isGold(); $('toneField').hidden = isGold(); }
+  function pickMarket(k) { state.market = k; store.set('desk.market2', k); drawMarkets(); syncMarket(); }
+  $('markets').onclick = (e) => { const b = e.target.closest('button'); if (b) pickMarket(b.dataset.k); };
+  drawMarkets(); syncMarket();
   $('optBtn').onclick = () => { const open = $('opts').hidden; $('opts').hidden = !open; $('optBtn').setAttribute('aria-expanded', String(open)); };
 
   function say(kind, text, spin) { const el = $('status'); el.className = `status ${kind || ''}`; el.innerHTML = (spin ? '<span class="spin"></span>' : '') + esc(text); }
@@ -456,13 +477,20 @@ pre.code { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
   }
 
   /* ------------------------------ analyze ------------------------------ */
+  function goldTone() {
+    const dxy = Number($('dxy').value); const yld = Number($('yld').value); const fear = Number($('fear').value);
+    const score = clamp(-0.45 * dxy - 0.35 * yld + 0.3 * fear, -1, 1);
+    const label = score >= 0.35 ? 'Clearly bullish' : score >= 0.12 ? 'Mildly bullish' : score <= -0.35 ? 'Clearly bearish' : score <= -0.12 ? 'Mildly bearish' : 'Neutral / mixed';
+    const w = (v, a, b, c) => (v < 0 ? a : v > 0 ? c : b);
+    return { score, label, method: `your read: dollar ${w(dxy, 'falling', 'flat', 'rising')}, yields ${w(yld, 'falling', 'flat', 'rising')}, fear ${w(fear, 'falling', 'flat', 'rising')}` };
+  }
   function readNews() {
     const cal = $('cal').value; const tone = Number($('tone').value);
     const ev = (minutes, when) => ({ title: 'A high-impact release', impact: 'High', minutes, when });
     return {
       manual: true, calendarOk: cal !== 'unknown', headlinesOk: false, events: [], headlines: [],
       nextEvent: cal === 'soon' ? ev(15, 'you said within 30 minutes') : cal === 'hour' ? ev(45, 'you said in 30 to 60 minutes') : null,
-      sentiment: { score: tone, label: $('tone').selectedOptions[0].textContent, method: 'your own read of the news', summary: '' },
+      sentiment: isGold() ? { ...goldTone(), summary: '' } : { score: tone, label: $('tone').selectedOptions[0].textContent, method: 'your own read of the news', summary: '' },
     };
   }
   const COPY = {
@@ -483,7 +511,7 @@ pre.code { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     const hasShots = state.shots.length > 0; const hasCsv = Boolean(state.csv);
     if (!hasShots && !hasCsv) return say('err', 'Add a screenshot of your chart first.');
     if (hasShots && !state.sample) return say('err', state.sample === null ? 'Reading a screenshot needs Claude. Open this page on claude.ai or in the Claude app.' : 'Still connecting to Claude. Try again in a few seconds.');
-    const inst = INS.INSTRUMENTS[state.market];
+    let inst = INS.INSTRUMENTS[state.market]; let switched = '';
     state.busy = true; $('run').disabled = true; $('run').textContent = 'Reading…';
     try {
       const now = Math.floor(Date.now() / 1000); const news = readNews();
@@ -511,6 +539,10 @@ pre.code { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
         }
         const prompt = `${vision.SYSTEM}\n\n${vision.buildPrompt({ inst, session: T.sessionInfo(now), notes: $('note').value.trim(), count: shots.length, context: engineResult ? vision.engineContext(engineResult, priceFmt(inst.decimals)) : null, ownData: true, news, guide: `PICTURES SENT: ${lines.join(' ')} Picture 1 is the first full screenshot: put the axis and marks on it.` })}`;
         const raw = await state.sample.json(prompt, { images: blobs, modelTier: 'complex', signal: state.ctl.signal, cache: false });
+        if (!hasCsv) {
+          const seen = INS.detectMarket(raw.chart && raw.chart.instrument);
+          if (seen && seen !== state.market) { pickMarket(seen); inst = INS.INSTRUMENTS[seen]; switched = `Your chart is ${tvName(seen)}: analysed as ${inst.name}.`; }
+        }
         result = await vision.combine({ raw, inst, now, news, engineResult, rerun: tf ? async (extra) => A.analyze({ inst, tf, smt: null, news, source: 'csv', ...extra }) : null, modelName: 'Claude', count: shots.length });
         // find where the price labels sit on the picture, so the marks land on the right prices
         if (result.annot) {
@@ -525,7 +557,7 @@ pre.code { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       }
       show($('result'), result, { imgUrl, thumb });
       const saved = await saveEntry(result, thumb);
-      say('ok', saved ? 'Done. Saved to your journal.' : 'Done. Could not save to the journal.');
+      say('ok', `${switched ? `${switched} ` : ''}${saved ? 'Done. Saved to your journal.' : 'Done. Could not save to the journal.'}`);
       $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
       const code = e && e.code;
@@ -560,7 +592,7 @@ pre.code { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     const p = r.plan; const m = r.meta; const f = priceFmt(m.decimals); const act = p.action; const has = p.entry !== undefined;
     const cls = act === 'LONG' ? 'bull' : act === 'SHORT' ? 'bear' : 'warn';
     const bd = r.bias.dir; const pos = r.bias.max ? clamp(r.bias.sum / r.bias.max, -1, 1) : bd * 0.6;
-    let h = `<div class="vTop"><div><div class="act">${act}</div><div class="sub"><span class="tag ${bd === 1 ? 'b' : bd === -1 ? 's' : ''}">${bd === 1 ? '▲ Bullish' : bd === -1 ? '▼ Bearish' : '– Neutral'}</span><span class="tag">${esc(m.symbol)}</span><span class="tag">Grade ${esc(p.grade)}</span></div></div>${ringHtml(r)}</div>`;
+    let h = `<div class="vTop"><div><div class="act">${act}</div><div class="sub"><span class="tag ${bd === 1 ? 'b' : bd === -1 ? 's' : ''}">${bd === 1 ? '▲ Bullish' : bd === -1 ? '▼ Bearish' : '– Neutral'}</span><span class="tag">${esc(tvName(m.symbol))}</span><span class="tag">Grade ${esc(p.grade)}</span></div></div>${ringHtml(r)}</div>`;
     h += `<p class="line1">${esc(headline(r))}</p>`;
     h += `<div class="bmeter"><span class="dn">▼ Bearish</span><div class="track"><i style="left:${50 + 50 * pos}%"></i></div><span class="up">Bullish ▲</span></div>`;
     if (has) {
@@ -568,7 +600,8 @@ pre.code { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       h += `<table class="lv ${act === 'WAIT' ? 'ref' : ''}"><tr class="ent"><td>${act === 'WAIT' ? 'Entry (ref)' : 'Entry'}</td><td>${f(p.entry)}</td><td>${how} · ${esc(p.entryType)}</td></tr>`;
       h += `<tr class="stop"><td>Stop</td><td>${f(p.stop)}</td><td>−${money(p.riskUsd)}</td></tr>`;
       for (const t of p.targets) h += `<tr class="tp ${t.rr === p.preferred ? 'pref' : ''}"><td>${t.rr}R</td><td>${f(t.price)}</td><td>+${money(p.riskUsd * t.rr)}</td></tr>`;
-      h += `</table><div class="size"><label for="riskIn${opt.key || ''}">Risk $</label><input id="riskIn${opt.key || ''}" data-risk type="number" min="1" step="10" inputmode="decimal"><span>→</span><b data-n></b><span>contracts</span><span class="num" data-rp></span></div>`;
+      const inst = INS.INSTRUMENTS[m.symbol]; const ticks = inst ? Math.round(p.risk / inst.tick) : null;
+      h += `</table>${inst ? `<div class="tickLine num">Stop ${f(p.risk)} = ${ticks} ticks × ${money(INS.tickValue(inst))} per tick</div>` : ''}<div class="size"><label for="riskIn${opt.key || ''}">Risk $</label><input id="riskIn${opt.key || ''}" data-risk type="number" min="1" step="10" inputmode="decimal"><span>→</span><b data-n></b><span>contracts</span><span class="num" data-rp></span></div>`;
     } else if (p.setup && p.setup.mssLevel !== undefined) {
       const s = p.setup; const up = s.dir === 1;
       h += `<table class="lv"><tr><td>Building</td><td class="${up ? 'up' : 'dn'}">${up ? 'LONG' : 'SHORT'}</td><td>${esc(s.tf)}</td></tr><tr><td>Needs a close ${up ? 'above' : 'below'}</td><td>${f(s.mssLevel)}</td><td></td></tr><tr class="stop"><td>Dead ${up ? 'below' : 'above'}</td><td>${f(s.extreme)}</td><td></td></tr></table>`;
@@ -689,7 +722,7 @@ pre.code { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     for (let p = Math.ceil(lo / 10) * 10; p < hi; p += 10) { x.strokeStyle = '#1f2533'; x.beginPath(); x.moveTo(0, Y(p)); x.lineTo(plotW, Y(p)); x.stroke(); x.fillStyle = '#b2b5be'; x.fillText(p.toFixed(1), plotW + 8, Y(p) + 4); }
     c.forEach((b, i) => { const up = b.c >= b.o; x.strokeStyle = x.fillStyle = up ? '#089981' : '#f23645'; x.beginPath(); x.moveTo((i + 0.5) * bw, Y(b.h)); x.lineTo((i + 0.5) * bw, Y(b.l)); x.stroke(); x.fillRect((i + 0.5) * bw - bw * 0.33, Y(Math.max(b.o, b.c)), bw * 0.66, Math.max(1, Math.abs(Y(b.o) - Y(b.c)))); });
     const L = c[c.length - 1]; x.fillStyle = L.c >= L.o ? '#089981' : '#f23645'; x.fillRect(plotW, Y(L.c) - 9, AX, 18); x.fillStyle = '#fff'; x.fillText(L.c.toFixed(1), plotW + 8, Y(L.c) + 4);
-    x.fillStyle = '#d1d4dc'; x.font = '13px Inter, Arial, sans-serif'; x.fillText('XAUUSD · 5 · example', 10, 16);
+    x.fillStyle = '#d1d4dc'; x.font = '13px Inter, Arial, sans-serif'; x.fillText('MGC1! · 5 · example', 10, 16);
     const slope = -(plotH / (hi - lo)) / H; const intercept = (top + hi * plotH / (hi - lo)) / H;
     return { url: cv.toDataURL('image/png'), slope, intercept, plotRight: plotW / W, xi: (i) => ((i + 0.5) * bw) / W };
   }
@@ -790,7 +823,9 @@ pre.code { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     $('kzTable').innerHTML = `<tr><th>Window</th><th>New York</th><th>Your time</th><th></th></tr>${rows.map(([n, a, b, u]) => `<tr><td>${esc(n)}</td><td class="num">${T.fmtMins(a)}–${T.fmtMins(b)}</td><td class="num">${nyToLocal(a)}–${nyToLocal(b)}</td><td>${u}</td></tr>`).join('')}`;
     const W = A.WEIGHTS; const names = [['htf', 'Bias'], ['sweep', 'Sweep'], ['mss', 'Shift'], ['array', 'Entry zone'], ['room', 'Room'], ['pd', 'Price zone'], ['time', 'Killzone'], ['ote', 'OTE'], ['smt', 'Indicators / SMT'], ['open', 'Open'], ['h1', 'H1 flow'], ['newsSentiment', 'News tone'], ['newsCalendar', 'Calendar']];
     $('wTable').innerHTML = `<tr><th>Check</th><th class="r">Points</th></tr>${names.map(([k, n]) => `<tr><td>${n}</td><td class="num r">${W[k]}</td></tr>`).join('')}<tr><td><b>Chart 87.5 + News 12.5</b></td><td class="num r"><b>100</b></td></tr>`;
-    $('cTable').innerHTML = `<tr><th>Symbol</th><th class="r">Tick</th><th class="r">$ / point</th></tr>${Object.values(INS.INSTRUMENTS).map((i) => `<tr><td><b>${i.key}</b> <span class="muted">${esc(i.name)}</span></td><td class="num r">${i.tick}</td><td class="num r">$${i.pointValue}</td></tr>`).join('')}`;
+    $('cTable').innerHTML = `<tr><th>Contract</th><th class="r">Tick</th><th class="r">$ / tick</th><th class="r">$ / point</th></tr>${Object.values(INS.INSTRUMENTS).map((i) => `<tr><td><b>${i.tv}</b> <span class="muted">${esc(i.name)}</span></td><td class="num r">${i.tick}</td><td class="num r">$${INS.tickValue(i)}</td><td class="num r">$${i.pointValue}</td></tr>`).join('')}`;
+    const gold = [['02:00–05:00', 'London killzone', 'First big move'], ['05:30', 'LBMA gold auction (10:30 London)', 'Often moves price'], ['08:20', 'COMEX floor opens', ''], ['08:30', 'US data (CPI, jobs, claims)', 'Biggest mover'], ['08:30–11:00', 'New York AM killzone', 'Best window'], ['10:00', 'LBMA PM auction (15:00 London)', ''], ['13:30', 'COMEX floor closes', 'Then quiet']];
+    $('goldTable').innerHTML = `<tr><th>New York</th><th>What</th><th></th></tr>${gold.map(([t, w, n]) => `<tr><td class="num">${t}</td><td>${w}</td><td class="muted">${n}</td></tr>`).join('')}`;
   }());
 
   /* -------------------------------- code -------------------------------- */

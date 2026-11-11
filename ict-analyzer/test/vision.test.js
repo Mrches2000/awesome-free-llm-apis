@@ -46,7 +46,7 @@ test('model replies are parsed even when wrapped or slightly broken', () => {
 
 test('the prompt carries the time, the market and the score maxima', () => {
   const p = buildPrompt({ inst: INSTRUMENTS.MNQ, session: sessionInfo(NOW), notes: 'EMA 20', count: 2, context: ['Feed last price 27,900.00'], news: calmNews });
-  assert.match(p, /Micro E-mini Nasdaq-100 \(MNQ\)/);
+  assert.match(p, /Micro E-mini Nasdaq-100 \(MNQ1!\)/);
   assert.match(p, /10:15 New York/);
   assert.match(p, /TRADER'S NOTE: EMA 20/);
   assert.match(p, /REFERENCE DATA/);
@@ -258,4 +258,23 @@ test('the built-in example is a clean long with room to the target', () => {
   assert.equal(r.plan.action, 'LONG');
   assert.deepEqual(r.plan.targets.map((t) => t.rr), RR_TARGETS);
   assert.equal(r.annot.marks.length, 4);
+});
+
+test('micro gold: tick value, chart-title detection and round-number figures', () => {
+  const { tickValue, detectMarket } = require('../lib/instruments');
+  assert.deepEqual(['MNQ', 'NQ', 'MGC', 'GC'].map((k) => tickValue(INSTRUMENTS[k])), [0.5, 5, 1, 10]);
+  assert.equal(INSTRUMENTS.MGC.tv, 'MGC1!');
+  const t = (x) => detectMarket(x);
+  assert.deepEqual([t('MGC1! · 5 · COMEX  Micro Gold Futures'), t('Micro Gold Futures'), t('GC1!'), t('XAUUSD'), t('MNQ1!'), t('NQ1! · CME'), t('US100'), t('EURUSD'), t('')], ['MGC', 'MGC', 'GC', 'GC', 'MNQ', 'NQ', 'NQ', null, null]);
+  // gold gets $50 / $100 figures as liquidity; Nasdaq does not; none of them is ever "taken"
+  const found = [];
+  for (let k = 0; k < 6; k++) {
+    const d = loadDemo(INSTRUMENTS.MGC, NOW - k * 7200);
+    const r = analyze({ inst: INSTRUMENTS.MGC, tf: d.tf, smt: d.smt, news: calmNews, source: 'demo' });
+    for (const p of r.pools.filter((x) => x.label.startsWith('$'))) { found.push(p); assert.equal(p.price % 50, 0); assert.equal(p.takenT, null); assert.equal(p.side, p.price > r.meta.price ? 'BSL' : 'SSL'); }
+  }
+  assert.ok(found.length > 0, 'round figures are mapped on gold');
+  assert.ok(found.some((p) => p.strength === 2.5) && found.some((p) => p.strength === 1.5), '$100 figures weigh more than $50 figures');
+  const n = analyze({ inst: INSTRUMENTS.MNQ, tf: loadDemo(INSTRUMENTS.MNQ, NOW).tf, smt: null, news: calmNews, source: 'demo' });
+  assert.ok(n.pools.every((p) => !p.label.startsWith('$')));
 });
